@@ -12,7 +12,13 @@
 
 ### linux command
 
-교수님의 코드를 카피함
+- 교수님의 코드를 카피함
+- Good Job
+- Hi
+
+1. 일번
+1. 이번
+1. 삼번
 
 ```
 cp ~hwan/.profile  ~hwan/.bashrc  ~hwan/.bash_logout .
