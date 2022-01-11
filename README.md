@@ -8,28 +8,35 @@
 
 linux command
 
-mkdir : 디렉토리를 만드는 명령어
-cd : 현재 디렉토리를 변경하는 명령어
-ls : 현재 디렉토리의 파일 리스트를 보여주는 명령어
--l : 파일의 정보를 상세히 보여줌
--a : 숨겨진 파일까지 보여줌
-cc
-pwd
-mv
-passwd
-chmod
-~
-~username
-..
-.
-rm
-whoami
-cat
-history
+- mkdir : 디렉토리를 만드는 명령어  
+- cd : 현재 디렉토리를 변경하는 명령어  
+- ls : 현재 디렉토리의 파일 리스트를 보여주는 명령어  
+    - ls 명령어의 옵션
+    - -l : 파일의 정보를 상세히 보여줌
+    - -a : 숨겨진 파일까지 보여줌  
+- cc : 컴파일 명령어
+- pwd : 현재 디렉토리의 경로를 출력하는 명령어
+- mv : 파일의 이름을 바꾸는 명령어
+- passwd : 사용자의 비밀번호를 바꾸는 명령어
+- chmod : 파일의 permission을 변경하는 명령어
+- ~ : 유저의 home 디렉토리 경로로 대치됨
+- ~username : username의 유저의 home 디렉토리 경로로 대치됨
+- .. : 현재 디렉토리의 상위 디렉토리
+- . : 현재 디렉토리
+- rm : 파일을 삭제하는 명령어
+- whoami : 유저의 이름을 출력하는 명령어
+- cat : 파일의 내용을 출력하는 명령어
+- history : 지금까지 사용했던 명령어를 순서대로 출력하는 명령어
 
-vi editor command
+### vi editor command
 
-normal, insert, command
+####vi editor의 세가지 모드
+
+1. normal mode : 
+
+1. insert mode : 
+
+1. command mode : 
 
 i(insert), a(append)
 del, x
@@ -43,31 +50,34 @@ q
 
 ## Lecture 2
 
+### Computer Hardware System
 ![Computer Hardware System](/images/computer_hardware_system.png)
 위의 그림과 같이 CPU는 Storage devices의 데이터를 직접 읽거나 실행하거나 쓸 수 없고 Input device에서 직접 입력받거나 Output device로 바로 출력할 수 없다. CPU는 Memory에만 접근할 수 있기 때문에 Storage devices의 파일을 사용하려면 Storage devices에서 파일을 Memory로 읽어온 다음 사용해야 한다. Input devices의 입력을 받거나 Output devices로 출력을 할 때도 입력받은 데이터가 Memory의 Input Buffer에 저장된 다음 사용할 수 있고 출력할 데이터를 Memory의 Output Buffer에 저장한 다음 출력할 수 있다. 
 
+### Linux Software
 ![Linux Software](/images/linux_software.png)
 software는 system software와 application software로 나뉘는데 system software는 hardware의 바로 윗 단계에 위치하며 위의 그림과 같이 여러 껍데기 형태의 구조를 갖고 사용자는 가장 윗단의 shell을 사용해 system software를 이용해 hardware를 제어할 수 있다. Linux역시 system software 중 하나이다.
 
 terminals
 
-linux command
+### linux command
 
-ps
-tty
--> linux는 모든 자원을 파일로 관리
-wall
-write
-Ctrl + d eof
-Ctrl + c kill
-Ctrl + z suspend
-cp
-fg
+- ps : 현재 실행중인 프로세스들의 정보를 출력하는 명령어  
+- tty : 사용중인 terminal 파일의 경로를 출력하는 명령어  
+-> linux는 모든 자원을 파일로 관리  
+- wall : 모든 유저에게 write를 수행하는 명령어  
+- write : 특정 유저의 terminal에 메시지를 write하는 명령어  
+- Ctrl + d EOF  
+- Ctrl + c : kill 신호를 보내 현재 실행중인 fore ground 프로세스를 강제로 종료시킴  
+- Ctrl + z : suspend 신호를 보내 현재 실행중인 프로세스를 일지중지 시킴  
+- cp : 파일을 복사하는 명령어
+- fg : back ground에서 실행중인 명령어를 fore ground에서 실행하도록 하는 명령어
 
 cat
 
-vi editor command
-:set number
+### vi editor command
+
+- :set number : 
 /(찾고자 하는 것)
 o
 
@@ -79,9 +89,22 @@ o
 
 ### linux command
 
+환경변수 PATH
+
+어느 유저가 명령어를 실행할 때 linux는 해당 명령어를 PATH에 저장된 경로에서 찾아서 실행한다.
+PATH에는 여러 경로를 저장할 수 있고 각 경로는 ':'로 구분된다.
+앞에 저장된 경로가 우선순위가 더 높다.
+
+which
+grep
+
+### markdown
+
 - 교수님의 코드를 카피함
 - Good Job
 - Hi
+
+주의 word에서 사용하는 따옴표와 bash에서 명령어에 사용되는 따옴표는 다르게 인식됨.
 
 1. 일번
 1. 이번
@@ -92,6 +115,14 @@ cp ~hwan/.profile  ~hwan/.bashrc  ~hwan/.bash_logout .
 source .profile
 ```
 이렇게 하니까 프롬프트가 초록색이 됨
+
+### git
+
+.gitignore
+git clone 주소
+
+
+37:57
 
 ## Lecture 4
 
@@ -159,4 +190,10 @@ vi command
 
 yy 복사
 p 붙여넣기
-n명령어 명령어를 n번 반복
+n명령어 명령어를 n번 반복
+
+## Lecture 5
+
+vi command
+
+ch
