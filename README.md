@@ -32,21 +32,15 @@ linux command
 
 ####vi editor의 세가지 모드
 
-1. normal mode : 
-
-1. insert mode : 
-
-1. command mode : 
-
-i(insert), a(append)
-del, x
-u
-esc
-:
-w
-q
-
-
+- normal mode : 일반적인 상황에서 적용되는 모드. 파일의 내용을 탐색하거나 복사 붙여넣기 하는 등의 기본적인 조작이 가능한 모드
+    - i(insert), a(append) : normal mode에서 insert mode로 넘어가는 키. i, a 모두 insert mode로 넘어가지만 i는 현재 커서의 위치 그대로 insert mode로 넘어가며 a는 다음 위치로 커서가 옮겨지는 차이점이 있다.
+    - del, x : 현재 커서 위치의 문자를 하나씩 삭제하는 키
+    - u(undo) : 마지막 명령을 실행하기 전 상태로 되돌리는 키
+- insert mode : 키보드를 이용해 파일에 내용을 추할 수 있는 모드
+    - esc : insert mode에서 normal mode로 되돌아가는 키
+- command mode : normal mode에서 콜론을 입력하여 진입하는 모드로 저장, 종료 등의 특정 명령어를 실행하기 위한 모드
+    - w : 현재까지 수정된 내용을 파일에 저장하는 명령어
+    - q : vi editor를 종료하는 명령어
 
 ## Lecture 2
 
@@ -58,31 +52,46 @@ q
 위의 그림과 같이 CPU는 Storage devices의 데이터를 직접 읽거나 실행하거나 쓸 수 없고 Input device에서 직접 입력받거나 Output device로 바로 출력할 수 없다. CPU는 Memory에만 접근할 수 있기 때문에 Storage devices의 파일을 사용하려면 Storage devices에서 파일을 Memory로 읽어온 다음 사용해야 한다. Input devices의 입력을 받거나 Output devices로 출력을 할 때도 입력받은 데이터가 Memory의 Input Buffer에 저장된 다음 사용할 수 있고 출력할 데이터를 Memory의 Output Buffer에 저장한 다음 출력할 수 있다. 
 
 ### Linux Software
-![Linux Software](/images/linux_software.png)
+<div style="text-align : center;">
+    <img src=/images/linux_software.png width="70%"/>
+</div>
 software는 system software와 application software로 나뉘는데 system software는 hardware의 바로 윗 단계에 위치하며 위의 그림과 같이 여러 껍데기 형태의 구조를 갖고 사용자는 가장 윗단의 shell을 사용해 system software를 이용해 hardware를 제어할 수 있다. Linux역시 system software 중 하나이다.
 
-terminals
+### Linux Kernel
+<div style="text-align : center;">
+    <img src=/images/linux_kernel.png width="70%"/>
+</div>
+Linux kernel은 Computer Hardware System에서 볼 수 있었던 5가지 구성 요소를 관리하도록 설계되어 있다.
+
+- Linux Kernel의 구성요소
+    - I/O subsystem : Input, Output device를 관리하는 subsystem으로 character device, network device, block device를 관리한다.
+        - character device : 문자 하나 단위로 I/O가 수행되는 I/O device
+        - network device : network를 통해 I/O가 수행되는 I/O device
+        - block device : 데이터 block 단위로 I/O가 수행되는 I/O device
+    - Memory Management subsystem : Memory를 관리하는 subsystem
+    - Process management subsystem : CPU에서 수행하는 process를 관리하는 subsystem
 
 ### linux command
 
 - ps : 현재 실행중인 프로세스들의 정보를 출력하는 명령어  
 - tty : 사용중인 terminal 파일의 경로를 출력하는 명령어  
--> linux는 모든 자원을 파일로 관리  
+    - linux는 모든 자원을 파일로 취급하며 관리하는데 character device인 terminal역시 파일로 관리되며 tty는 유저의 terminal에 해당하는 파일의 경로를 출력하는 것이다. 만약 그 파일에 write 권한이 있는 다른 유저가 terminal 파일에 write를 수행하면 그 terminal에 write한 내용이 출력되어 사용중인 유저가 볼 수 있다.
 - wall : 모든 유저에게 write를 수행하는 명령어  
 - write : 특정 유저의 terminal에 메시지를 write하는 명령어  
-- Ctrl + d EOF  
+- Ctrl + d : EOF
 - Ctrl + c : kill 신호를 보내 현재 실행중인 fore ground 프로세스를 강제로 종료시킴  
 - Ctrl + z : suspend 신호를 보내 현재 실행중인 프로세스를 일지중지 시킴  
 - cp : 파일을 복사하는 명령어
 - fg : back ground에서 실행중인 명령어를 fore ground에서 실행하도록 하는 명령어
-
-cat
+- cat : 파라미터에 따라 작동이 달라지는 명령어
+    - 파라미터가 없을 때 : 터미널을 통해 한 줄씩 입력을 받고 입력된 내용을 다시 터미널에 출력함
+    - 파일의 이름들이 파라미터로 주어졌을 때 : 입력된 파일 순서대로 내용을 연결하여 터미널에 출력함
 
 ### vi editor command
 
-- :set number : 
-/(찾고자 하는 것)
-o
+- set number : command mode에서 사용하는 명령어로 파일의 텍스트들의 행 번호를 표시해주는 명령어
+- /(찾고자 하는 것) : 파일 내에서 (찾고자 하는 것)의 위치를 찾아주는 명령어
+- o : normal mode에서 현재 커서가 위치한 줄 밑에 한 줄을 추가하고 커서의 위치를 추가된 줄로 이동시키고 insert mode로 진입하는 명령
 
 ### redirection
 
@@ -92,22 +101,33 @@ o
 
 ### linux command
 
-환경변수 PATH
+- 환경변수 PATH
 
-어느 유저가 명령어를 실행할 때 linux는 해당 명령어를 PATH에 저장된 경로에서 찾아서 실행한다.
-PATH에는 여러 경로를 저장할 수 있고 각 경로는 ':'로 구분된다.
-앞에 저장된 경로가 우선순위가 더 높다.
+    - 어느 유저가 명령어를 실행할 때 linux는 해당 명령어를 PATH에 저장된 경로에서 찾아서 실행한다. PATH에는 여러 경로를 저장할 수 있고 각 경로는 ':'로 구분된다. 앞에 저장된 경로가 우선순위가 더 높다.
 
-which
-grep
+- which : 명령어의 위치를 출력하는 명령어
+- grep : 입력에서 파라미터로 전달된 특정 문자열이 포함된 행을 출력하는 명령어
+- clear : 터미널에 출력된 내용을 지울 때 사용하는 명령어
+- tee : stdin으로의 입력을 stdout과 파일들에 출력하는 명령어
 
 ### markdown
+
+- \# : 제목
+- \## : 부제목
+- \### : 부부제목
+- 빈 줄을 통해 문단을 구분할 수 있음
+- \* 또는 \- 등의 특수문자를 줄 앞에 입력하여 글머리 기호가 출력되게 할 수 있다.
+- 1. 과 같이 숫자를 줄 앞에 입력하여 줄 번호가 출력되게 할 수 있다. 줄 번호는 자동으로 계산되어 출력되기 때문에 모두 1. 로 입력해도 상관없다.
+- 글머리 기호와 줄 번호는 탭으로 구분하여 하위 문단으로 출력되도록 할 수 있다.
+
+밑은 수업에서 사용한 markdown의 예시
 
 - 교수님의 코드를 카피함
 - Good Job
 - Hi
 
-주의 word에서 사용하는 따옴표와 bash에서 명령어에 사용되는 따옴표는 다르게 인식됨.
+주의  
+word에서 사용하는 따옴표와 bash에서 명령어에 사용되는 따옴표는 다르게 인식됨.
 
 1. 일번
 1. 이번
@@ -121,30 +141,30 @@ source .profile
 
 ### git
 
-.gitignore
-git clone 주소
-
-
-37:57
+- .gitignore : git으로 관리되지 않을 파일들을 저장하는 파일
+- git clone 주소 : 주소의 저장소를 로컬 저장소로 복사하는 명령어. origin을 유지함
+- git pull : origin의 새 commit의 변경사항을 가져오는 명령어
+- git add : 파일을 staged 상태로 변경하는 명령어
+- git commit : 현재까지의 staged된 파일의 변경사항을 commit으로 기록하는 명령어. commit 메시지를 지정해야 함
+- git push : origin 저장소에 로컬 저장소의 새 commit들을 반영하는 명령어.
 
 ## Lecture 4
 
-redirection
+### redirection
 
-here document
-0<< or <<
-임시 파일을 만들어 stdin으로 연결
+#### here document 
 
-here string
-<<< bash만 가능
+0<< end message or << end message : 임시 파일을 만들어 stdin으로 연결. 파일의 내용을 모두 입력한 뒤 명령을 실행할 때 입력한 end message를 입력하면 파일 입력을 끝내고 생성된 임시 파일을 stdin의 입력으로 redirection 함.
 
-pipe에서 실행의 순서
-cmd1 | cmd2
-병렬로 동시에 실행된다.
-why? buffer size의 문제
+#### here string
+<<< (string) : bash만 가능 입력된 string을 stdin으로 redirection함
 
-named pipe
-이름 붙인 pipe
+#### pipe에서 실행의 순서
+**cmd1 | cmd2** 로 실행할 때 cmd1의 출력이 output 버퍼에 저장된 뒤 cmd2의 input으로 사용되는데 두 명령이 실행되는 속도가 달라 버퍼에서 오버플로우가 발생하면 cmd1의 출력이 버려지는 결과가 발생할 수 있으므로 두 명령은 병렬적으로 동시에 실행됨
+
+- mkfifo : named pipe를 생성하는 명령어
+    - named pipe : 이름이 있는 pipe. 서로 다른 터미널에서 pipe로 사용할 수 있다는 차이점이 있음
+    사용 예시
 
 글로빙
 *
