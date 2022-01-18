@@ -95,7 +95,9 @@ Linux kernel은 Computer Hardware System에서 볼 수 있었던 5가지 구성 
 
 ### redirection
 
-
+- < 파일 or 0< 파일 : 명령을 실행할 때 stdin으로 입력받아야 할 때 터미널을 통해 입력받는 대신 파일의 내용을 입력으로 받음
+- \> file or 1> file : 명령을 실행할 때 stdout으로 출력될 때 터미널로 출력되는 대신 file로 출력됨
+- 2> file : stderr로의 출력을 터미널로 출력하는 대신 file로 출력됨
 
 ## Lecture 3
 
@@ -109,6 +111,7 @@ Linux kernel은 Computer Hardware System에서 볼 수 있었던 5가지 구성 
 - grep : 입력에서 파라미터로 전달된 특정 문자열이 포함된 행을 출력하는 명령어
 - clear : 터미널에 출력된 내용을 지울 때 사용하는 명령어
 - tee : stdin으로의 입력을 stdout과 파일들에 출력하는 명령어
+- date : 현재 날짜와 시간을 출력하는 명령어
 
 ### markdown
 
@@ -133,7 +136,7 @@ word에서 사용하는 따옴표와 bash에서 명령어에 사용되는 따옴
 1. 이번
 1. 삼번
 
-```
+```bash
 cp ~hwan/.profile  ~hwan/.bashrc  ~hwan/.bash_logout .
 source .profile
 ```
@@ -159,19 +162,8 @@ source .profile
 #### here string
 <<< (string) : bash만 가능 입력된 string을 stdin으로 redirection함
 
-#### pipe에서 실행의 순서
-**cmd1 | cmd2** 로 실행할 때 cmd1의 출력이 output 버퍼에 저장된 뒤 cmd2의 input으로 사용되는데 두 명령이 실행되는 속도가 달라 버퍼에서 오버플로우가 발생하면 cmd1의 출력이 버려지는 결과가 발생할 수 있으므로 두 명령은 병렬적으로 동시에 실행됨
-
-- mkfifo : named pipe를 생성하는 명령어
-    - named pipe : 이름이 있는 pipe. 서로 다른 터미널에서 pipe로 사용할 수 있다는 차이점이 있음
-    사용 예시
-
-글로빙
-*
-?
-[abc]
-[a-c]
-cat <<< $(echo -e "hello\nhere  string")
+- <<< $() : 괄호 안의 명령의 출력을 here string의 입력으로 사용함 
+    - 예시 : cat <<< $(echo -e "hello\nhere  string")
 
 a.out <<< 300 &> out.txt
 out.txt내용
@@ -180,50 +172,417 @@ Hello stdout 300
 버퍼에서 먼저 뭐가 나올지 모르므로 stderr이 먼저 나올 수 있음
 순서를 조종하기 위해선 특정 버퍼가 먼저 flush되도록 프로그래밍 해야 함
 
-cc -o 옵션
-mkfifo 파이프 이름
+#### pipe에서 실행의 순서
+**cmd1 | cmd2** 로 실행할 때 cmd1의 출력이 output 버퍼에 저장된 뒤 cmd2의 input으로 사용되는데 두 명령이 실행되는 속도가 달라 버퍼에서 오버플로우가 발생하면 cmd1의 출력이 버려지는 결과가 발생할 수 있으므로 두 명령은 병렬적으로 동시에 실행됨.
+cmd1이 cmd2보다 빠르면 파이프로의 write가 잠시 멈춘다.
+반대로 cmd2가 cmd1보다 빠르면 파이프에서의 read가 잠시 멈춘다.
+cmd1이 먼저 종료되면 파이프가 닫히고 cmd2는 EOF를 읽고 종료된다.
+cmd2가 먼저 종료되면 파이프가 닫히고 cmd1에 SIGPIPE신호를 주고 신호를 받은 cmd1도 종료되게 된다.
 
-서로 다른 터미널에서
-같은 named pipe를 이용해
+- mkfifo : named pipe를 생성하는 명령어
+    - named pipe : 이름이 있는 pipe. 서로 다른 터미널에서 pipe로 사용할 수 있다는 차이점이 있음
+    - ex) 서로 다른 터미널에서 같은 named pipe를 이용해
 b.out > pipe
 a.out < pipe
-를 실행한 상태에서
-b.out를 실행한 터미널에서 숫자를 입력하자
-a.out에서 b.out에 입력한 숫자가 입력으로 들어옴
+를 실행한 상태에서 b.out를 실행한 터미널에서 숫자를 입력하자 a.out에서 b.out에 입력한 숫자가 입력으로 들어옴
 
-data type
-PM 2:56
+### globbing & wildcard
+- globbing : wildcard문자를 사용한 glob패턴으로 여러 파일의 이름들을 지정하는 것
+- wildcard : 명령어를 사용할 때 여러 파일의 이름을 지정하는데 사용되는 문자
+    - * : 모든 가능한 문자열에 대치됨(빈 문자열 포함)
+    - ? : 문자 하나와 대치됨
+    - [abc] : 괄호 안의 문자 중 하나로 대치됨
+    - [a-c] : 괄호 안에 지정된 문자의 범위에 해당하는 문자 중 하나로 대치됨
 
-automatic
-static
-manual
-const
+### linux command
+- cc명령 -o 옵션 : 생성되는 실행 파일의 이름을 지정할 수 있는 옵션
 
+### data type
 
+- 자료형은 변수가 어떠한 성질을 갖는 자료인지 지정해주는 것으로 같은 자료형을 사용하더라도 어느 컴퓨터에서 사용하고 어떤 컴파일러를 사용하냐에 따라 구현되는 방식과 크기는 달라질 수 있다. 또한 현실에서의 데이터를 한정적인 크기의 bit를 이용해 구현한 것이기 때문에 현실에서의 데이터와의 성질에서 차이가 생긴다. 
+    - /usr/include/limits.h에 자료형들의 최대 크기가 정의되어 있다.
 
-#### 배운것
+- 정수형 변수의 음수 표현 방법
+    - 부호 bit + 값
+    - 1의 보수
+    - 2의 보수
+- 위에서 설명했듯이 어느 방법을 사용하는지는 컴퓨터, 컴파일러에 따라 달라진다.
+- 정수형 변수에서 자료형 앞에 수식어가 없으면 기본적으로 singed 자료형으로 취급되며 unsigned 수식어를 붙여서 0 이상의 값만 다루는 것으로 명시할 수 있다.
 
+#### signed, unsigned 차이점
 
-pipe |
-pipe sync
-here document
-here string
+binary.c
+```c
+#include <stdio.h>
 
-vi command
+int main()
+{
+        int in_a;
+        fscanf(stdin, "%d", &in_a);
+        fprintf(stdout, "%d : ", in_a);
+        for (int i = 31; i >= 0; i--){
+                fprintf(stdout, "%d", in_a >> i & 1);
+                if (i % 4 == 0)
+                        fprintf(stdout, " ");
+        }
+        fprintf(stdout, "\n");
+        return 0;
+}
+```
+int형 변수 하나에 %d로 정수를 하나 입력받아 저장된 bit 정보를 출력하는 코드
 
-yy 복사
-p 붙여넣기
-n명령어 명령어를 n번 반복
+binary.c 실행 결과
+```bash
+$ bin <<< 3
+3 : 0000 0000 0000 0000 0000 0000 0000 0011
+$ bin <<< -3
+-3 : 1111 1111 1111 1111 1111 1111 1111 1101
+```
+- 3을 입력하여 bit로 출력한 결과 3을 2진수로 변환한 11이 출력됐다.
+- -3을 입력하여 bit로 출력한 결과 2진수 11을 2의 보수를 취한 bit값이 출력됐다.  
+
+즉, 우리가 실습을 진행하는 환경에서는 c언어의 signed 정수형을 음수를 2의 보수를 취하는 방식으로 구현하고 있다.
+
+- python에선?
+```python
+>>> bin(3)
+'0b11'
+>>> bin(-3)
+'-0b11'
+>>> bin(3&-3)
+'0b1'
+```
+- bin : 입력한 정수의 2진수 값을 출력하는 python 명령어
+- python에서 3의 2진수는 11이다.
+- -3의 2진수는 -11이다.
+    - 이는 마치 부호 bit + 값의 방식을 사용한 것처럼 보인다.
+- 3 & -3의 2진수는 1이다.
+    - 3 & -3이 1이 나오는 경우는 3에 2의 보수를 취한 방식에서만 가능하다.
+
+즉, 실습 환경에선 python에서 역시 2의 보수를 취하는 방식을 사용한다.
+
+실습을 진행하면서 binary.c에 숫자를 하나 더 입력받고 먼저 입력한 숫자에 오른쪽 shift연산을 두번 수행한 값의 bit 정보도 출력하도록 수정했다.
+
+```bash
+$ bin
+-456 456
+-456 : 1111 1111 1111 1111 1111 1110 0011 1000 
+456 : 0000 0000 0000 0000 0000 0001 1100 1000 
+-114 : 1111 1111 1111 1111 1111 1111 1000 1110
+
+$ bin
+456 -456
+456 : 0000 0000 0000 0000 0000 0001 1100 1000 
+-456 : 1111 1111 1111 1111 1111 1110 0011 1000 
+114 : 0000 0000 0000 0000 0000 0000 0111 0010 
+```
+
+- -456을 오른쪽으로 두번 shift연산을 하자 맨 왼쪽 bit가 1이 추가되었다.
+- 456을 오른쪽으로 두번 shift연산을 하자 맨 왼쪽 bit가 0이 추가되었다.
+
+변수들의 자료형을 int형에서 unsigned int형으로 변경했다.
+```bash
+$ bin
+-456 456
+-456 : 1111 1111 1111 1111 1111 1110 0011 1000 
+456 : 0000 0000 0000 0000 0000 0001 1100 1000 
+1073741710 : 0011 1111 1111 1111 1111 1111 1000 1110
+
+$ bin
+456 -456
+456 : 0000 0000 0000 0000 0000 0001 1100 1000 
+-456 : 1111 1111 1111 1111 1111 1110 0011 1000 
+114 : 0000 0000 0000 0000 0000 0000 0111 0010 
+```
+- -456에선 int형과 달리 shift연산을 했을 때 맨 왼쪽 bit가 0이 추가되었다.
+- 456의 shift연산한 결과는 int형과 같았다.
+
+#### 결론
+
+같은 숫자를 입력했을 때 unsigned int, int형에 저장되는 bit정보는 같지만 shift연산을 수행했을 때 int형 변수는 맨 왼쪽의 sign bit의 값이 유지되면서 shift연산이 일어나지만 unsigned int에 저장된 값은 0이상의 정수값으로 취급되므로 오른쪽 shift연산이 발생할 때 맨 왼쪽 bit가 0이 된다.
+
+### vi command
+
+- yy :복사
+- p : 붙여넣기
+- n명령어 : 명령어를 n번 반복
+    - ex) 5yy: 코드 5줄 복사
+    - 5p : 복사된 코드를 5번 붙여넣기
 
 ## Lecture 5
 
-vi command
+### cc 명령에서 사용되는 컴파일러는 무엇일까?
+```bash
+which cc
+/usr/bin/cc
 
-ch
+ls -al /usr/bin/cc
+lrwxrwxrwx 1 root root 20  8월 20  2018 /usr/bin/cc -> /etc/alternatives/cc
 
-### Lecture 06
+ls -al /etc/alternatives/cc
+lrwxrwxrwx 1 root root 12  8월 20  2018 /etc/alternatives/cc -> /usr/bin/gcc
 
-#### Pointer / Address
+ls -al /usr/bin/gcc
+lrwxrwxrwx 1 root root 5  5월 21  2019 /usr/bin/gcc -> gcc-7
+
+which gcc-7
+/usr/bin/gcc-7
+
+ls -al /usr/bin/gcc-7
+lrwxrwxrwx 1 root root 22 12월  4  2019 /usr/bin/gcc-7 -> x86_64-linux-gnu-gcc-7
+
+which x86_64-linux-gnu-gcc-7
+/usr/bin/x86_64-linux-gnu-gcc-7
+
+ls -al /usr/bin/x86_64-linux-gnu-gcc-7
+-rwxr-xr-x 1 root root 1047488 12월  4  2019 /usr/bin/x86_64-linux-gnu-gcc-7
+```
+cc명령을 사용했을 때 실제로 실행되는 파일은 /usr/bin/x86_64-linux-gnu-gcc-7
+
+- x86_64-linux-gnu-gcc-7 는?
+    - x86 : intel cpu에서 사용하는 아키텍처
+    - _64 : 64bit cpu용
+    - linux : linux운영체제용
+    - gnu-gcc-7 : gnu gcc 7버전 컴파일러
+
+개인적으로 그렇다면 혹시 다른 버전의 gcc가 linux안에 존재할 지가 궁금하여 찾아보았다.
+
+```bash
+ls -al /usr/bin | grep gcc | grep rwxr-x
+-rwxr-xr-x  1 root   root         428  5월  7  2006 c89-gcc
+-rwxr-xr-x  1 root   root         454  4월 11  2011 c99-gcc
+-rwxr-xr-x  1 root   root      907648  4월 12  2018 gcc-5
+-rwxr-xr-x  1 root   root       31264  4월 12  2018 gcc-ar-5
+-rwxr-xr-x  1 root   root        2189 12월  7  2016 gccmakedep
+-rwxr-xr-x  1 root   root       31264  4월 12  2018 gcc-nm-5
+-rwxr-xr-x  1 root   root       31264  4월 12  2018 gcc-ranlib-5
+-rwxr-xr-x  1 root   root     1047488 12월  4  2019 x86_64-linux-gnu-gcc-7
+-rwxr-xr-x  1 root   root       31200 12월  4  2019 x86_64-linux-gnu-gcc-ar-7
+-rwxr-xr-x  1 root   root       31200 12월  4  2019 x86_64-linux-gnu-gcc-nm-7
+-rwxr-xr-x  1 root   root       31200 12월  4  2019 x86_64-linux-gnu-gcc-ranlib-7
+```
+
+위와 같이 /usr/bin 디렉토리에서 gcc가 포함된 실제 실행 파일만을 추출 했더니 gcc-5, c89-gcc, c99-gcc등 여러가지 gcc버전이 있는데 기본적인 cc명령은 최신 버전의 gcc-7에서 사용하는 컴퓨터의 아키텍쳐에 맞는 실행 파일에 링크 되게 설정하는 방식을 사용하는 것 같다.
+
+### singed, unsigned 차이점 #2
+
+####변경된 binary.c
+```c
+#include <stdio.h>
+
+int main()
+{
+        unsigned int in_a;
+        fscanf(stdin, "%u", &in_a);
+        fprintf(stdout, "%u \t : ", in_a);
+        for (int i = 31; i >= 0; i--){
+                fprintf(stdout, "%d", in_a >> i & 1);
+                if (i % 4 == 0)
+                        fprintf(stdout, " ");
+        }
+        fprintf(stdout, "\n");
+        return 0;
+}
+```
+숫자 하나를 %u로 입력받아 unsigned int 변수에 저장한 뒤 %u로 출력하고 변수에 저장된 bit값을 2진수로 출력하는 코드
+
+위의 코드에 -1을 입력한 결과
+```bash
+pcc011@git:~/pcc/lec05$ bin
+-1
+4294967295 	 : 1111 1111 1111 1111 1111 1111 1111 1111 
+```
+- unsigned int를 입력받는 %u에 음수인 -1을 입력했지만 변수에 저장된 bit는 1의 2의 보수를 취한 bit와 같다.
+- %u로 출력한 결과 첫번째 bit가 sign bit로 인식되지 않고 2진수의 32번째 자리로 인식되어 2^32-1 값인 4294967295가 출력됨.
+
+#### hello.c
+
+```c
+#include <stdio.h>
+
+int main()
+{
+        signed int siA;
+        unsigned int unA;
+        signed int siSum;
+        unsigned int unSum;
+
+        signed short shortSum;
+        unsigned short unshortSum;
+        fscanf(stdin, "%d", &siA);
+        fprintf(stdout, "Signed Integer :  %d\n", siA);
+        unA = siA;
+        fprintf(stdout, "Unsigned Integer :  %u\n", unA);
+        fprintf(stdout, "Unsigned Integer %%d:  %d\n", unA);
+        fprintf(stdout, "Signed Integer %%u:  %u\n", siA);
+
+        siSum = siA + (signed int)unA;
+        unSum = (unsigned int) siA + unA;
+        fprintf(stdout, "siSum %%d %d\n", siSum);
+        fprintf(stdout, "siSum %%u %u\n", siSum);
+        fprintf(stdout, "unSum %%d %d\n", unSum);
+        fprintf(stdout, "unSum %%u %u\n", unSum);
+
+        shortSum = siA + unA;
+        unshortSum = siA + unA;
+        fprintf(stdout, "shortSum %%h %hd\n", shortSum);
+        fprintf(stdout, "shortSum %%uh %hu\n", shortSum);
+        fprintf(stdout, "unshortSum %%h %hd\n", unshortSum);
+        fprintf(stdout, "unshortSum %%uh %hu\n", unshortSum);
+
+        shortSum = siA + unA;
+        unshortSum = siA + unA;
+        fprintf(stdout, "shortSum %%h %hd\n", shortSum);
+        fprintf(stdout, "shortSum %%uh %hu\n", shortSum);
+        fprintf(stdout, "unshortSum %%h %hd\n", unshortSum);
+        fprintf(stdout, "unshortSum %%uh %hu\n", unshortSum);
+        return 0;
+}
+```
+
+%d로 int형 변수 siA에 입력을 저장한 뒤 같은 값을 unsigned int형 변수 unA에 저장하고 두 변수의 값의 합을 int, unsigned int, short, unsigned short형 변수에 저장한 뒤 각각의 변수를 변수의 길이에 맞는 signed, unsigned형 출력 서식(%d, %u, %hd, %hu)을 이용해 출력하는 코드
+
+실행결과
+```bash
+$ a.out
+-1
+Signed Integer :  -1
+Unsigned Integer :  4294967295
+Unsigned Integer %d:  -1
+Signed Integer %u:  4294967295
+siSum %d -2
+siSum %u 4294967294
+unSum %d -2
+unSum %u 4294967294
+siSum %h -2
+siSum %uh 65534
+unSum %h -2
+unSum %uh 65534
+```
+
+- int형 변수에 -1을 입력받아 %d로 출력하자 -1이 출력됐다.
+- int형 변수를 %u로 출력했더니 4294967295이 출력됐다.
+- unsigned int 변수에 int 변수의 값을 대입한 뒤 출력한 결과가 int 변수의 출력 결과와 같았다.
+- int, unsigned int 변수의 합의 출력 역시 int 변수에 저장해서 출력한 것과 unsigned int 변수에 저장해서 출력한 것 모두 %d로 출력할 때 -2가 출력됐다.
+- int, unsigned int 변수의 합의 출력 역시 int 변수에 저장해서 출력한 것과 unsigned int 변수에 저장해서 출력한 것 모두 %u로 출력할 때 4294967294가 출력됐다.
+- 두 변수의 합을 short, unsigned short형 변수에 저장해서 출력했을 때 %h로 출력한 결과는 -2였다.
+- 두 변수의 합을 short, unsigned short형 변수에 저장해서 출력했을 때 %uh로 출력한 결과는 65534였다.
+
+#### 해석
+
+- signed 변수이든 unsigned 변수이든 저장되는 데이터는 같다.
+- 어느 자료형의 변수임에 관계없이 signed 정수의 출력서식(%d, %h)을 이용해 출력하면 변수의 데이터가 signed 정수로 변환되어 unsigned 정수의 출력서식(%u, %uh)을 이용해 출력하면 변수의 데이터가 unsigned 정수로 변환되어 출력된다.
+- int와 unsigned int 변수의 합을 수행했을 때 변수가 signed인지 unsigned인지 관계없이 변수에 저장된 데이터 간의 더하기 bit연산이 수행된 결과가 반환된다.
+    - 1111 1111 1111 1111 1111 1111 1111 1111 데이터 두 개의 합 비트연산을 한 결과는 1111 1111 1111 1111 1111 1111 1111 1110 인데 이 데이터를 signed 정수로 해석하면 -2, unsigned 정수로 해석하면 4294967294인데 두 변수의 합을 저장한 변수를 %d, %u로 출력했을 때의 결과가 앞에서 설명한 각각의 수와 같다.
+- 자료형의 크기가 다른 변수에 값을 저장할 때 자동으로 type casting이 일어난다.
+    - 때문에 두 변수의 합을 short형 변수에 저장해 %h로 출력했을 때 int형 변수에 저장해 %d로 출력했을 때와 같은 -2가 출력됐다.
+    - 또한 int형 변수에서 합을 %u로 출력했을 때 2^32-2가 출력된 것 처럼 short형 변수에서 합을 %uh로 출력한 결과가 2^16-2가 출력됐다.
+
+#### 컴파일러 경고 출력 옵션
+cc -W 옵션 : 컴파일에서 발생하는 모든 warning을 출력하는 옵션
+
+### three basic memory in C
+
+* automatic : 변수가 선언된 범위 내에서만 생존하는 변수. 처음 사용될 때 초기화되어 선언된 범위를 벗어나면 사라짐.
+* static : 프로그램이 실행되는 동안 생존하는 변수. 프로그램이 시작할 때 초기화 되며 선언된 범위를 벗어나도 사라지지 않음.
+* manual : malloc과 free가 포함된 변수? array의 크기가 선언된 이후 변할 수 있는 유일한 변수라고 함.
+
+### define
+```c
+#define macro_name value
+```
+코드에서 반복적으로 사용되는 값을 define을 이용해 매크로로 정의하면 macro_name 을 코드에서 사용했을 때 preprocessor를 처리할 때 컴파일러가 변환시 지정된 값으로 변환된다.
+
+- cc -E 옵션 : 소스코드의 전처리 결과를 출력하는 옵션
+
+count1.c의 코드
+
+```c
+#include <stdio.h>
+#define VALUE_ONE 1
+
+// Count number of 1 (binary)
+int count_one(unsigned int a)
+{
+        int static numCalls = 0;
+        int count = 0;
+        while (a)
+        {
+                count += a & VALUE_ONE;
+                a >>= VALUE_ONE;
+        }
+        numCalls++;
+        fprintf(stderr, "Call : %d\n", numCalls);
+        return count;
+}
+
+
+int main()
+{
+        int i;
+        int in_a;
+        fscanf(stdin, "%u", &in_a);
+        fprintf(stdout, "%u \t : ", in_a);
+        for (i = 31; i >= 0; i--)
+        {
+                fprintf(stdout, "%d", in_a >> i & 1);
+                if (i % 4 == 0)
+                        fprintf(stdout, " ");
+        }
+        count_one(in_a);
+        count_one(in_a);
+        count_one(in_a);
+        count_one(in_a);
+        fprintf(stdout, "\n");
+        fprintf(stdout, "count : %d\n", count_one(in_a));
+        return 0;
+}
+```
+
+```bash
+$ cc -E count1.c 
+.
+.
+.
+# 5 "count1.c"
+int count_one(unsigned int a)
+{
+ int static numCalls = 0;
+ int count = 0;
+ while (a)
+ {
+  count += a & 1;
+  a >>= 1;
+ }
+ numCalls++;
+ fprintf(
+# 15 "count1.c" 3 4
+        stderr
+# 15 "count1.c"
+              , "Call : %d\n", numCalls);
+ return count;
+}
+.
+.
+.
+```
+count1.c 파일에서 #define으로 정의된 VALUE_ONE을 11, 12번째 줄에서 사용했는데 cc -E 옵션으로 count1.c의 전처리 결과를 확인해본 결과 소스코드에서 11, 12번째 줄에서 VALUE_ONE이 사용된 부분에 VALUE_ONE이 사라지고 VALUE_ONE의 값으로 정의된 1이 들어간 모습이다.
+
+### const
+```c
+int const con = 100;
+```
+- 값을 변경할 수 없는 상수처럼 사용되는 변수.
+- 선언할 때 값이 초기화 되어야 함.
+
+## Lecture 06
+
+### linux command
+- alias : 자주 사용하는 명령어의 단축 명령어를 만드는 명령어
+- !$ : 가장 마지막에 사용한 파라미터가 반환됨
+- kill : 프로세스를 종료시킬 때 사용하는 명령어
+
+### Pointer / Address
 
 * &val - 변수 val의 주소
 * \*ptr - 변수 ptr에 저장된 주소에 저장된 값
@@ -243,4 +602,108 @@ ch
     * pointer
         * pointer 변수이긴 하나 메모리 할당을 따로 하진 않음
     
-### Lecture 07
+## Lecture 07
+
+## Lecture 08
+
+\c언어에서 include file을 할 때 "" <>의 차이
+\#if, #ifdef, #ifndef, #elif, #else, #endif
+
+### macro definition
+
+\#define <identifier> <replacement token list>
+\#undef
+replace as text
+괼호를 잘 쳐야 함
+(a) a * a x
+(a) * (a)
+
+special macro
+
+Token stringication #
+
+\#define str(s) #s
+
+Token Concatenation
+
+ex) #define DECLARE_STRUCT_TYPE(name) typedef struct name##s name##t
+
+최적화  
+예시 코드  
+int fn(int a)
+{
+    int b;
+    return a * a;
+}
+
+int main()
+{
+    int a = 100;
+    b = fn(a);
+}
+
+cat을 cay로 잘못 썼을 때
+^y^t
+
+cc -E : cpp 파일 만들기
+cc -S : assembly 파일 만들기
+cc -c : object 파일 만들기
+cc -o : excutable 파일 만들기
+
+### CPP processing
+
+유니코드
+
+LF, CR, LF문자를 CR로 바꿈
+\
+
+## Lecture09
+
+### 프로젝트 설명
+임베디드 시스템을 위한 고정소수점 수학 라이브러리 개발
+
+cpu의 성능이 다 다름
+
+8, 16, 32, 64 비트 컴퓨터의 차이?
+처리하는 단위
+
+cpu의 중요한 두가지 기능
+alu(수학 연산) cu(제어)
+
+사칙연산 논리연산들은 하드웨어적으로 구현됨
+사칙연산 논리연산은 단위 사이클만에 끝남
+근데 곱셈 나눗셈은 단위 사이클만에 안끝날 수도 있음 -> ALU의 성능에 따라 다름
+
+사람마다 서로 다른 정수부, 소수부의 길이의 조합 네 가지가 과제로 주어질 것
+ex) #define FX_S_15_16 11516
+
+최소 차이를 계산해서 보고서에서 설명해야 함
+0.000000 + 0.000000 : 0.000000
+0.000015 + 0.000015 : 0.000031 이런 차이가 나는 이유도 설명
+
+모든 표현 가능한 범위에서 
+
+### gcc -g 옵션
+
+gdb : GNU Debugger
+
+cc -g 옵션으로 컴파일 하면 debug info가 포함된 실행파일이 생성됨
+gdb a.out로 실행
+
+### gdb command
+run 프로그램 실행
+where 
+list 
+    ex) list 10:
+        list main.c
+        list 10, 30
+help
+pwd : 현재 디렉토리를 출력하는 명령어
+print : 현재 스코프 안의 변수를 지정해서 값을 출력할 수 있는 명령어
+step : 
+next : 
+break
+delete
+delete breakpoints
+ni == next
+bt back trace
