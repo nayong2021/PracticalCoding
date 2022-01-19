@@ -604,6 +604,250 @@ int const con = 100;
     
 ## Lecture 07
 
+### int const * vs int * const
+#### fnpointer.c #1
+
+```c
+#include <stdio.h>
+
+void add(int *a, int *b, int *c)
+{
+        *c = *a + *b;
+}
+
+int main()
+{
+        int const a = 100;
+        int b = 200;
+        int c = 9999;
+        int *p = &a;
+        fprintf(stdout, "a, b, c : %d %d %d\n", a, b, c);
+        *p = 200;
+        fprintf(stdout, "a, b, c : %d %d %d\n", a, b, c);        
+}
+```
+이 프로그램을 실행하면 int const 변수에 저장된 값을 int 포인터로 주소르 이용해 접근해 변경하고자 시도한다.
+
+실행결과
+```bash
+$ a.out
+a, b, c : 100 200 9999
+a, b, c : 200 200 9999
+```
+a가 int const 변수임에도 int 포인터 변수로 접근했더니 값이 변경됐다.
+
+- 그러면 const로 선언하는 의미는?
+    - 컴파일 단계에서 warning이 떠서 const 변수에 포인터로 접근하는 코드가 있음을 알 수 있음
+
+```c
+int const *p = &a;
+*p = 200;
+```
+위와 같이 포인터 변수를 선언하면 int const형 변수에 대한 포인터 이기 때문에 두번째 줄이 불가능 하여 컴파일 단계에서 에러가 나게 된다.
+
+#### 결론
+
+- int const * p : int const형 변수를 가리키는 pointer 변수 p
+    - p에 저장된 주소값은 바꿀 수 있다.
+    - p에 저장된 주소의 위치에 저장된 값은 바꿀 수 없다.
+- int * const p : int형 변수를 가리키는 pointer const 변수 p
+    - p에 저장된 주소의 위치에 저장된 값은 바꿀 수 있다.
+    - p에 저장된 주소값은 바꿀 수 없다.
+
+### function pointer
+
+#### fnpointer.c #2
+```c
+#include <stdio.h>
+
+void add(int *a, int *b, int *c)
+{
+        *c = *a + *b;
+}
+void sub(int *a, int *b, int *c)
+{
+        *c =  *a - *b;
+}
+void mul(int *a, int *b, int *c)
+{
+        *c =  *a * *b;
+}
+void div(int *a, int *b, int *c)
+{
+        *c =  *a / *b;
+}
+
+int main()
+{
+        int a = 100;
+        int b = 200;
+        int c = 9999;
+        char ch;
+        int op = 0;
+        fscanf(stdin, "%d %c %d", &a, &ch, &b);
+
+        void (*fp[4])(int *, int *, int *) = {add, sub, mul, div};
+        //int const * p = &a;
+        //int * const q = &a;
+        switch(ch){
+                case '+':
+                        op = 0;
+                        break;
+                case '-':
+                        op = 1;
+                        break;
+                case '*':
+                        op = 2;
+                        break;
+                case '/':
+                        op = 3;
+                        break;
+                default:
+                        break;
+        }
+        fprintf(stdout, "a, b, c : %d %d %d\n", a, b, c);
+        fp[op](&a, &b, &c);
+        fprintf(stdout, "a, b, c : %d %d %d\n", a, b, c);
+        fprintf(stdout, "fp %lld %lld %lld %lld\n", add, sub, mul, div);
+}
+```
+
+함수 포인터의 선언
+```c
+void (*fp)();
+```
+함수 포인터 fp : return값이 없는 void 함수의 주소를 저장하는 함수 포인터  
+fp의 파라미터는 컴파일에 직접적인 영향을 미치진 않지만 형식에 맞는 함수만 사용하도록 안전장치의 역할을 하여 컴파일 단계에 warning이 뜨도록 할 수 있다.
+```c
+void (*fp)(int *, int *, int *); /* add, sub, mul, div 함수는
+                                    int의 주소값 세개를 파라미터로 받으므로 
+                                    이렇게 선언하여 안전장치를 달 수 있다 */ 
+```
+함수 포인터 fp에 mul함수의 주소를 저장
+```c
+fp = mul; //변수의 주소와 달리 함수는 앞에 &를 붙일 필요가 없다.
+```
+> 주의 : 이 때 fp = mul();로 작성하면 mul함수를 실행하는 형태가 되니 이렇게 작성하면 안된다.
+
+mul함수의 주소가 저장된 함수 포인터 fp로 mul함수 실행하기
+```c
+fp(&a, &b, &c);  /* 정상적인 실행 방법 */
+*fp(&a, &b, &c); /* 함수 포인터에선 포인터로 주소에 접근한다고 
+                    해서 앞에 *를 붙일 필요가 없다. */
+```
+
+함수 포인터의 배열 fp 선언
+```c
+void (*fp[4])(int *, int *, int *) = {add, sub, mul, div};
+```
+함수 포인터 배열 fp에 저장된 함수의 주소를 이용한 함수 호출
+```c
+fp[0](&a, &b, &c); // add(&a, &b, &c); 와 동일
+fp[1](&a, &b, &c); // sub(&a, &b, &c); 와 동일
+fp[2](&a, &b, &c); // mul(&a, &b, &c); 와 동일
+fp[3](&a, &b, &c); // div(&a, &b, &c); 와 동일
+```
+즉 fnpointer.c #2는 두 정수와 사칙연산 부호 하나를 입력받아 switch case문을 이용해 입력받은 부호에 따라 함수 포인터 배열 fp에서 실행할 함수의 index를 op에 저장해 함수 포인터 배열 fp를 이용해 add, sub, mul, div 중 하나의 함수를 실행해 c에 사칙연산을 수행한 값을 저장하고 결과를 출력하는 코드이다.
+
+fnpointer.c 실행결과
+```bash
+$ a.out
+100 + 200
+a, b, c : 100 200 9999
+a, b, c : 100 200 300
+fp 94277047683002 94277047683041 94277047683080 94277047683120
+
+$ a.out
+50 - 34
+a, b, c : 50 34 9999
+a, b, c : 50 34 16
+fp 94068517676986 94068517677025 94068517677064 94068517677104
+
+$ a.out
+12 * 9
+a, b, c : 12 9 9999
+a, b, c : 12 9 108
+fp 94536957278138 94536957278177 94536957278216 94536957278256
+
+$ a.out
+200 / 25
+a, b, c : 200 25 9999
+a, b, c : 200 25 8
+fp 94596585293754 94596585293793 94596585293832 94596585293872
+```
+
+### C Compile and Execution
+
+<div style="text-align : center;">
+    <img src=/images/c_compile_and_execution.png width="70%"/>
+</div>
+
+1. compile 명령
+    - preprocessor directive : #이 붙은것들(#define, #include 등)를 처리
+1. compile user source code : preprocessor가 끝난 source code로 assembly code를 만듬
+    - assembly : machine language에 가장 가까운 언어
+1. link assembler : printf, scanf등 외부 코드를 link시켜서 executable code를 생성
+    1. static link : 실행 파일을 생성할 때 미리 다 link시킴
+    1. dynamic link : 실행 도중에 필요할 때 link시킴
+1. loader : memory로 executable code를 load시킴
+
+- compile 프로그램
+    - interpreter : 한번에 한 줄씩 기계어로 변환
+        - python은 interpreter를 사용하는 언어
+    - compiler : compile 단계에서 코드 전체를 기계어로 변환
+        - c언어는 compiler를 사용하는 언어
+
+#### gcc option
+- -g : debugging을 위한 옵션. 디버깅을 위한 체크코드가 포함되어 실행속도가 느려지기 때문에 debugging하지 않을 땐 사용하지 않음.
+- -c : .o파일(assembly code)를 생성하는 옵션
+- -E : preprocessing만 수행하는 옵션
+- -O : optimization 옵션
+- -m32 : 32비트 프로그램으로 컴파일 하는 옵션
+    - 64비트 컴퓨터에서도 --32 옵션으로 컴파일 한 실행파일을 지원함
+- -m64 : 64비트 프로그램으로 컴파일 하는 옵션
+    - 32비트 컴퓨터에서는 --64 옵션으로 컴파일 한 실행파일을 지원 못함
+
+### gcc compile - for multiple file
+
+<div style="text-align : center;">
+    <img src=/images/gcc_compile-for_muliple_file.png width="100%"/>
+</div>
+
+gcc main.c func.c
+1. main.c func.c의 preprocessing이 일어남
+    1. main.c의 #include <stdio.h>, #include "func.h"가 처리됨
+    1. func.c의 #include "func.h"가 처리됨
+1. preprocessing된 main.c, func.c를 compile하여 assembly code main.o, func.o가 생성됨
+1. linking : main.o에서 사용하는 printf, func1에 대한 linking을 처리하여 실행파일 a.out이 생성됨
+    1. printf : 실행할 때 dynamic linking 됨
+    1. func1 : func.o에서 static linking 됨
+
+
+- cc -c main.c : assembly code파일 main.o 파일 생성  
+- cc -c func.c : assembly code파일 func.o 파일 생성  
+- cc main.o func.o : linking이 수행되어 executable code a.out파일 생성  
+
+만약 func.o가 생성된 상태에서 main.c의 코드만 수정됐을 땐
+```bash
+cc main.c func.o
+```
+로 실행하는 것이 좋다.
+> func.c에 포함된 코드가 길어서 컴파일이 오래 걸리는 코드라면 코드가 변한것이 없는데  
+cc main.c func.c  
+로 실행하게 되면 같은 func.o를 생성하기 위한 시간이 다시 소모되기 때문  
+그러므로 func.o파일을 생성해 두었다면 이를 다시 사용하는 것이 좋다.
+
+### C Preprocessor (CPP)
+
+preprocessing과정에선
+
+- include header files
+- define macro
+- conditional compilation
+- line control
+
+이 처리된다고 한다.
+
 ## Lecture 08
 
 \c언어에서 include file을 할 때 "" <>의 차이
@@ -707,3 +951,46 @@ delete
 delete breakpoints
 ni == next
 bt back trace
+
+## Lecture10
+
+### core dumped
+
+core dump ? 프로그램이 실행되는 중의 메모리 상태인 core를 기록하는 것
+
+```c
+int main()
+{       
+        int a = 10/0;
+} 
+```
+고의 코어 덤프 발생 코
+/var/lib/apport/coredump : core 파일이 있는 경로
+gdb a.out 코어파일 경로 : core가 dump된 원인을 출력해줌
+
+- visual studio
+    - empty project
+
+### float
+
+float 는 c언어에서 실수의 근사치를 표현하기 위한 자료형으로 일반적으로 4바이트를 사용함.
+
+<div style="text-align : center;">
+    <img src=/images/float.png width="100%"/>
+</div>
+
+R = (-2s + 1) * 1.mantissa * e ^ (exponential - 127)
+
+profiling
+
+gcc -pg옵션으로 컴파일 해야 함
+
+profiling하는 이유?
+성능을 측정하기 위해
+
+- golden rule
+    - speed - cpu > memory > storage > io > human
+
+how to use gprof
+- compile with -pg option
+    - $ cc -pg -Wall test.c -o test
