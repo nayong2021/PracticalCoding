@@ -855,25 +855,93 @@ preprocessing과정에선
 
 ### macro definition
 
-\#define <identifier> <replacement token list>
-\#undef
-replace as text
-괼호를 잘 쳐야 함
-(a) a * a x
-(a) * (a)
+```c
+#define <identifier> <replacement token list>  //macro 정의
+#undef <identifier> //macro 정의 해제
+```
+macro는 preprocessing 단계에서 text로 replace됨
+> ⚠️주의 : 괼호를 잘 쳐야 함  
+> #define sqr(a) a * a // X. sqr(1+5) -> 1+5 * 1+5가 됨  
+> #define sqr(a) (a) * (a) // O. sqr(1+5) -> (1+5) * (1+5)가 됨 
 
-special macro
+### Order Expansion of Function Macro
 
-Token stringication #
+1. Stringification(#) operations
+1. Parameters
+1. Concatenation operations
+1. Tokens expand
 
-\#define str(s) #s
+expansion order를 확인 해볼 수 있는예시
+```c
+#define HE HI
+#define LLO _THERE
+#define HELLO "HI THERE"
+#define CAT(a,b) a##b
+#define XCAT(a,b) CAT(a,b)
+#define CALL(fn) fn(HE,LLO)
+CAT(HE,LLO) // "HI THERE", because concatenation occurs before normal expansion
+XCAT(HE,LLO) // HI_THERE, because the tokens originating from parameters ("HE" and "LLO") are expanded first
+CALL(CAT) // "HI THERE", because parameters are expanded first
+```
 
-Token Concatenation
+### Special Macro
 
-ex) #define DECLARE_STRUCT_TYPE(name) typedef struct name##s name##t
+- \_\_FILE__ : string 형태의 파일 이름으로 변환됨
+- \_\_LINE__ : int 형태의 현재 line 번호로 변환됨
 
-최적화  
+사용 예시
+```c
+//test.c
+
+#include <stdio.h>
+
+int main()
+{
+        printf("file : %s, line : %d\n", __FILE__, __LINE__);
+}
+````
+```bash
+$ cc test.c
+$ a.out
+file : test.c, line : 5
+```
+#### Token stringication \#
+
+```c
+#define str(s) #s // 이 매크로를 선언하면
+str(p = "foo\n";) // outputs "p = \"foo\\n\";"
+str(\n)           // outputs "\n
+//위와 같이 자동으로 파라미터에 입력된 문자열을 그대로 출력할 수 있는 형태로 변환해줌
+
+#define xstr(s) str(s) //expansion order를 이용한 응용
+#define foo 4
+str (foo)  // outputs "foo"
+xstr (foo) // outputs "4"
+```
+
+### Token Concatenation
+
+```c
+#define DECLARE_STRUCT_TYPE(name) typedef struct name##_s name##_t
+
+DECLARE_STRUCT_TYPE(g_object);
+    // Outputs: typedef struct g_object_s g_object_t;
+```
+- Token Concatenation을 사용하지 않은 것과 차이점?
+    - Token을 연속으로 사용할 때 Concatenation을 사용하면 붙여서 쓸 수 있다.
+```c
+#define sq(a) aaa
+sq(b) //output : aaa
+#define sq(a) a a a
+sq(b) //output : b b b
+#define sq(a) a##a##a
+sq(b) //output : bbb
+```
+
+### gcc optimization
+#### 최적화에 대한 기본적인 이해
 예시 코드  
+```c
 int fn(int a)
 {
     int b;
@@ -885,21 +953,134 @@ int main()
     int a = 100;
     b = fn(a);
 }
+```
 
-cat을 cay로 잘못 썼을 때
-^y^t
+- 함수가 호출되면 함수의 메모리 stack이 생성됨
+    - int a를 받기 위한 메모리
+    - int b의 메모리
+    - return될 값을 저장할 메모리
 
-cc -E : cpp 파일 만들기
-cc -S : assembly 파일 만들기
-cc -c : object 파일 만들기
-cc -o : excutable 파일 만들기
+- 위의 code의 fn함수에서 b는 사용되지 않은 파라미터임
+    - 그러므로 optimize될 때 int b; 는 지워진다.
+
+그렇다면
+```c
+b = fn(a); //함수 호출하기
+b = a * a; //직접 계산하기
+```
+두 코드의 차이점은?
+
+- 성능?
+    - 직접 계산 > 함수 호출
+- 코드 길이?
+    - 함수 호출 > 직접 계산
+    - 10줄 짜리 코드를 함수로 사용하면 함수를 사용할 때 코드 한줄만 차지한다.
+    - 해당 계산이 필요할 때 코드를 직접 작성하면 사용할 때 마다 10줄 씩 작성해야 한다.
+
+\#define으로 macro를 정의해 사용하면?
+- 함수를 사용하듯이 코드의 길이를 줄이면서 성능도 직접 코드를 작성하는것과 같은 성능을 얻을 수 있다.
+- c++ 에서는 함수를 정의할 때 inline 키워드를 사용하면 함수를 사용하는 부분에서 함수가 코드로 삽입되어 성능 면에서 좋다.
+> ⚠️ 주의 : #define을 사용할 땐 괄호 등을 적절히 주의하여 잘 사용하여 컴파일 해야 함
+
+### linux tip
+명령어를 잘못 입력했을 때
+- ^(수정 할 부분)^(대신 삽입 될 부분)
+예시
+```bash
+$ cay test.c
+$ ^y^t
+cat test.c
+int fn(int a)
+{
+    int b;
+    return a * a;
+}
+
+int main()
+{
+    int a = 100;
+    b = fn(a);
+}
+```
+- gcc options
+    - -E : preprocessing이 완료된 cpp 파일 생성 옵션
+    - -S : compile이 완료된 assembly code 파일 생성 옵션
+    - -c : assemble이 완료된 object 파일 생성 옵션
+    - -o : linking까지 완료된 excutable 파일을 원하는 경로와 이름으로 생성하는 옵션
 
 ### CPP processing
 
-유니코드
+- Character set
+    - utf-8 (유니코드)
 
-LF, CR, LF문자를 CR로 바꿈
-\
+- Initial processing
+    1. LF, CR, LF 문자(줄바꿈 코드들)를 CR로 바꿈
+    1. if -trigraphs
+    1. long line with "\\" -> merge
+    ```c
+    a = "abc
+    de"; //error
+    a = "abc\
+    de"; // output : a = "abcde";
+    ```
+    1. 모든 comment를 "" 로 변환하여 지움
+
+- Tokenization with space
+    ```c
+    #define foo() bar  
+    foo()bar -> bar bar // barbar가 아님
+    // barbar가 되려면 concatenate 사용
+    ```
+- processing language
+    - inclusion of header / Macro Expansion / Conditional Compile / Line Control Diagnostics
+
+### Macro Definition tips
+
+- #define을 여러줄에 걸쳐 쓰기
+    - 위에서 설명한 back slash("\\")사용
+- 정의해야 하는 위치?
+    - 어디에든 가능
+    - 마지막으로 정의한 macro가 작동함
+- 함수 형태의 macro
+    - if문을 사용하는 함수가 필요한 부분에서 ? 조건문을 사용한 macro를 사용하면 성능이 매우 좋아짐
+    - 괄호에 주의
+    - omit parameter
+        ```c
+        #define min(X, Y) ((X) < (Y) ? (X) : (Y))
+        min(, b) // output : (( ) < (b) ? ( ) : (b))
+        ```
+        - macro를 사용할 때 파라미터가 없어도 잘 작동함
+        > ⚠️주의 : 그러나 파라미터의 개수는 잘 맞춰야 함
+- 위에서 설명한 stringization, concatenation을 잘 사용하면 좋음
+- variadic
+    - 파라미터의 갯수에 따라 다르게 작동할 수 있도록 macro를 작성 가능
+    - printf가 이를 활용한 코드의 예시
+    ```c
+    #define eprintf(...) fprintf (stderr, __VA_ARGS__)
+    eprintf ("%s:%d: ", input_file, lineno)  // output : fprintf (stderr, "%s:%d: ", input_file, lineno)
+    #define eprintf(format, ...) fprintf (stderr, format __VA_OPT__(,) __VA_ARGS__)
+    ```
+- Misnesting
+    ```c
+    #define twice(x) (2*(x))
+    #define call_with_1(x) x(1)
+    call_with_1 (twice)  // - >twice(1) -> (2*(1))
+    #define strange(file) fprintf (file, "%s %d",
+    strange(stderr) p, 35); //  fprintf (stderr, "%s %d", p, 35);
+    ```
+    - 어려운 기법임
+
+- predefined macros
+    - All Standards
+        - \_\_FILE__ - Filename with full path string
+        - \_\_LINE__ - Decimal number of current line
+    - C99
+        - \_\_DATE__ - run date string
+        - \_\_TIME__ - run time string
+        - \_\_STDC__ - 1 or 0 if standards // 0 is with -traditional-cpp
+        - \_\_STD_VERSION__ , \_\_STDC_HOSTED__, \_\_cplusplus \_\_OBJC__, \_\_ASSEMBLER__
+    - GNU C Extension
+        - \_\_COUNTER (generate uniq id), \_\_GFORTRAN, \_\_GNUC__, __GNU_MINOR, \_\_FILE_NAME\__,  
 
 ## Lecture09
 
@@ -994,3 +1175,10 @@ profiling하는 이유?
 how to use gprof
 - compile with -pg option
     - $ cc -pg -Wall test.c -o test
+
+## lecture 11
+
+### gprof option
+-b // --brief -q -p : call graph or runtime
+-z // add unused functions
+-A // Annotation on source, must be compiled with -pg -g
