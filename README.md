@@ -1084,54 +1084,123 @@ int main()
 
 ## Lecture09
 
-### 프로젝트 설명
-임베디드 시스템을 위한 고정소수점 수학 라이브러리 개발
+### 프로젝트
 
-cpu의 성능이 다 다름
+- 임베디드 시스템을 위한 고정소수점 수학 라이브러리 개발
 
-8, 16, 32, 64 비트 컴퓨터의 차이?
-처리하는 단위
+#### 개발 의의
+- floating point연산은 int 연산에 비해 비용이 많이 요구되는 연산임
+- 또한 IoT등에 사용되는 저렴한 cpu에는 floting point 연산을 한 사이클 내에 시켜줄 수 있는 math unit이 없는 경우도 많음
+- 그렇기에 int 연산을 이용하여 고정 소수점 연산을 개발하면 임베디드 시스템 등에서의 실수 연산에서 유용하게 사용될 수 있음
 
-cpu의 중요한 두가지 기능
-alu(수학 연산) cu(제어)
+#### 개발 목표
 
-사칙연산 논리연산들은 하드웨어적으로 구현됨
-사칙연산 논리연산은 단위 사이클만에 끝남
-근데 곱셈 나눗셈은 단위 사이클만에 안끝날 수도 있음 -> ALU의 성능에 따라 다름
+- cpu 마다 한번에 처리하는 데이터의 크기가 다름
+    - 8bit cpu, 16bit cpu, 32bit cpu, 64bit cpu 등
+- 그러므로 각각의 학생한테 서로 다른 정수부, 소수부의 길이의 조합이 과제로 주어질 것
+    - ex) #define FX_S_15_16 11516 // sign형 정수부 15, 소수부 16 길이를 갖는 고정소수점 자료형을 구현해야 함
 
-사람마다 서로 다른 정수부, 소수부의 길이의 조합 네 가지가 과제로 주어질 것
-ex) #define FX_S_15_16 11516
+#### 개발 실습
 
-최소 차이를 계산해서 보고서에서 설명해야 함
-0.000000 + 0.000000 : 0.000000
-0.000015 + 0.000015 : 0.000031 이런 차이가 나는 이유도 설명
+정수부 15, 소수부 16길이 signed 고정 소수점 개발을 같이 실습하며 연습해 보았다.
 
-모든 표현 가능한 범위에서 
+##### 부동 소수점, 고정 소수점 간의 변환
+- 부동 소수점 -> 고정 소수점
+```c
+typedef int fixed32;
 
-### gcc -g 옵션
+#define FX_2_PLUS_16 (1<<16)
 
-gdb : GNU Debugger
+fixed32 fromFloat(float fa)
+{
+        return (fixed32)(fa * FX_2_PLUS_16);
+}
+// fromFloat(0.99) return 64880
+```
 
-cc -g 옵션으로 컴파일 하면 debug info가 포함된 실행파일이 생성됨
-gdb a.out로 실행
+- 고정 소수점 -> 부동 소수점
+```c
+#define FX_2_MINUS_16 1.52587890625e-05F
 
-### gdb command
-run 프로그램 실행
-where 
-list 
-    ex) list 10:
-        list main.c
-        list 10, 30
-help
-pwd : 현재 디렉토리를 출력하는 명령어
-print : 현재 스코프 안의 변수를 지정해서 값을 출력할 수 있는 명령어
-step : 
-next : 
-break
-delete
-delete breakpoints
-ni == next
-bt back trace
+float toFloat(fixed32 xa)
+{
+        return (float)(xa) * FX_2_MINUS_16;
+}
+// toFloat(64880) return 0.98990
+```
+
+- floating point로 0.99를 입력받아 fixed point로 변환하여 %d로 출력했을 때 64880이 출력됨
+- fixed point로 64880을 입력받아 floating point로 변환하여 %f로 출력했을 때 0.98990이 출력됨
+
+ 0.0001 의 오차가 발생했다. 이는 기존의 수에서 0.01% 정도의 비율로 fixed point를 이용하여 얻는 이득에 비해 매우 적은 오차이다. 
+
+##### 고정 소수점의 합
+
+1. 부동 소수점으로 변환하여 합한 후 고정 소수점으로 변환
+    ```c
+    fixed32 fxAdd(fixed32 a, fixed32 b)
+    {
+            return fromFloat((toFloat(a) + toFloat(b)));
+    }
+    ```
+1. 부동 소수점끼리 바로 합산
+    ```c
+    fixed32 fxAdd2(fixed32 a, fixed32 b)
+    {
+        return a + b;  
+    }
+    ```
+
+- fixed point가 표현할 수 있는 모든 범위의 값을 for문을 이용해 어느정도 건너 뛰면서 합을 한 결과
+    - 기본적으로 1번, 2번 방법의 계산 결과에 차이가 없음
+    - 2번 연산을 통해 overflow가 발생하면 계산 결과에 차이가 생길 수 있음
+        - 그러나 이는 데이터의 길이의 문제 이므로 계산 방법이 잘못된 것이 아님
+- 연산량에 있어서 뛰어난 것은 2번 방식임
+    - 그러므로 2번 방식을 이용해 구현해야 한다.
+
+##### 고정 소수점에서의 최소 단위
+
+최소 단위를 계산하고 그것이 왜 최소 단위인지에 대해 고찰하여 보고서에 작성해야 함
+
+- FX_S_15_16의 경우에선 최소단위가 2 ^ (-16) 임
+
+### Debugging
+
+Debugging : 코드의 버그를 잡는 것
+
+- cc -g 옵션 : debug info가 포함된 실행파일을 컴파일 하는 옵션
+
+#### gdb
+
+gdb : GNU Debugger의 약자
+
+- debug info가 포함된 a.out을 gdb로 debugging하기 위해 실행
+    - gdb a.out로 실행
+
+##### gdb command
+- run : 프로그램 실행
+- where : Call stack 출력
+- list : 원하는 위치의 code를 출력하는 명령어 
+    - parameter 없음 : 현재 위치에서 부터 코드 10줄 출력
+    - parameter 함수 이름 : 함수의 코드 출력
+    - parameter num1, num2 : 'num1'줄에서 'num2'줄까지 코드 출력
+- help : 명령어에 대한 도움말을 출력
+- pwd : 현재 디렉토리를 출력
+- print : 현재 스코프 안의 변수의 값을 출력
+- step : 코드를 한줄 씩 실행하는 명령
+- next : 현재 소스코드의 다음 줄을 실행하는 명령
+    - step은 fprintf를 만났을 때 fprintf 함수로 넘어간다.
+    - next는 fprintf를 만났을 때 함수의 처리를 끝낸 다음 현재 소스코드의 다음 줄로 넘어간다.
+- break : break point를 지정하는 명령
+- quit : gdb 종료 명령어
+- continue : 현재 위치에서 계속 실행하는 명령
+- alias : 단축 명령어를 지정하는 명령
+- delete : breakpoint를 삭제하는 명령
+    - delete num : num번째 break point를 삭제하는 명령
+    - delete breakpoints : 모든 break point를 삭제하는 명령
+- ni : next 명령의 alias
+- bt : back trace의 약자. Call stack을 출력하는 다른 명령어
+- watch : 변수에 감시점을 설정하는 명령. 감시점이 설정된 변수는 값이 바뀔 때 break가 걸림
 
 ## Lecture10
 
