@@ -1444,8 +1444,7 @@ Q. optimization을 했을 때 debugging이 가능할까?
 
 ## lecture 11
 
-### gprof option
-<<<<<<< HEAD
+### gprof options
 - -b // --brief -q -p : call graph or runtime
 - -z // add unused functions(사용하지 않은 함수도 나타내줌)  
 
@@ -1553,8 +1552,3 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
         return fromRGBA(r,g,b,a);
 }
 ```
-=======
--b // --brief -q -p : call graph or runtime
--z // add unused functions
--A // Annotation on source, must be compiled with -pg -g
->>>>>>> fae9d12cb1a1a91fdf477f8a7c66b1a26e47bed9
