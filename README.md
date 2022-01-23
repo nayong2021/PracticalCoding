@@ -1407,7 +1407,7 @@ iv_b : v_b에 저장된 bit를 정수로 표현한 값 (= v_b * 2 ^ (-q))
 
 CPU 에서 instruction 하나를 처리할 땐 최대 아래와 같은 5단계를 거친다. Instruction의 종류에 따라 필요하지 않은 단계가 있을 수 있다.
 
-1. Fetch : 실행할 명렬을 메모리에서 읽어서
+1. Fetch : 실행할 명령을 메모리에서 읽어서
 1. Decode : 명령어를 해독해 할 일을 파악하고 명령에 필요한 인자를 읽은 뒤
 1. Execute : 명령을 수행하고
 1. Memory : 메모리에 접근하여
@@ -1445,6 +1445,110 @@ Q. optimization을 했을 때 debugging이 가능할까?
 ## lecture 11
 
 ### gprof option
--b // --brief -q -p : call graph or runtime
--z // add unused functions
--A // Annotation on source, must be compiled with -pg -g
+- -b // --brief -q -p : call graph or runtime
+- -z // add unused functions(사용하지 않은 함수도 나타내줌)  
+
+Q. 함수 포인터로 호출된 함수는 counting이 증가할까?
+> A. 증가한다.
+
+- -A // Annotation on source, must be compiled with -pg -g
+- --graph
+
+### 실습
+
+red, green, blue, alpha값을 각각 8bit씩 사용하여 저장하는 32bit 자료형 만들기
+
+자료형 이름 : t_rgba  
+[rrrrrrrr][gggggggg][bbbbbbbb][aaaaaaaaa]  
+위와 같은 형태로 값을 저장하게 만들고자 함
+
+- 사용하는 자료형
+    - unsigned int (int의 첫 번째 bit는 sign bit이므로 unsigned int를 사용해야 함)
+    ```c
+    typedef unsigned int t_rgba;
+    ```
+- r, g, b, a로 입력받을 수 있는 값의 범위 : 0 ~ 2^8-1 (=255)
+
+#### r, g, b, a값을 t_rgba로 저장하는 방법
+0~255 사이의 값을 unsigned int에 입력받으면 다음과 같이 맨 오른쪽 8bit안에 값이 모두 저장 될 것이다.  
+[00000000][00000000][00000000][????????]  
+
+이 때 [????????]에는 0~255사이의 입력받은 값이 저장되어 있는데 red의 경우 이를 다음과 같이 맨 왼쪽 8bit가 되도록 24번 왼쪽으로 shift하고  
+[00000000][00000000][00000000][rrrrrrrr]  
+=>  
+[rrrrrrrr][00000000][00000000][00000000] - (1)  
+
+green의 경우 왼쪽에서 9~16번째 bit가 되도록 16번 왼쪽으로 shift하고  
+[00000000][00000000][00000000][gggggggg]  
+=>  
+[00000000][gggggggg][00000000][00000000] - (2)  
+
+blue의 경우 왼쪽에서 17~24번째 bit가 되도록 8번 왼쪽으로 shift하고  
+[00000000][00000000][00000000][bbbbbbbb]  
+=>  
+[00000000][00000000][bbbbbbbb][00000000] - (3)  
+
+alpha의 경우 그대로 냅둔 다음  
+[00000000][00000000][00000000][aaaaaaaa] - (4)
+
+(1), (2), (3), (4) 네 데이터끼리 bitwise or 연산을 하면
+
+[rrrrrrrr][gggggggg][bbbbbbbb][aaaaaaaa]  
+위와 같은 형태로 t_rgba변수에 값이 저장되게 된다.
+
+위의 과정을 하나의 매크로로 처리할 수 있는데 아래의 fromRGBA가 그 매크로에 해당한다.
+```c
+#define fromRGBA(r,g,b,a) (((r)&0xff)<<24)|(((g)&0xff)<<16)|(((b)&0xff)<<8)|((a)&0xff)
+t_rgba rgba_1 = fromRGBA(red, green, blue, alpha);
+```
+실습 과정 중 처음엔 fromRGBA를 함수로 정의했으나 #define으로 macro로 정의했을 때 함수 호출 없이 코드에 직접 작성한 효과를 얻어 성능이 좋아지므로 위와 같이 수정되었다.  
+
+r, g, b, a를 각각 0xff와 bitwise and 연산을 먼저 수행 한것은 0~255 범위의 값이 아닌 다른 값이 입력됐을 때 다른 색의 bit에 영향을 끼치지 않도록 필터링 한 안전장치이다.
+
+#### 과제 : t_rgba 변수 간의 곱셈
+
+t_rgba 변수 두 개를 입력받아 각각의 컬러끼리 곱한 결과를 t_rgba로 return하는 t_rgba간의 곱셈을 두 방법으로 구현 해보았다.
+
+컬러 값을 float로 변환하여 float 연산으로 계산하는 방법
+```c
+#define F_NUM_1_255 (1.0f/255.0f)
+t_rgba mul_float(t_rgba c1, t_rgba c2)
+{
+        float r1, g1, b1, a1;
+        float r2, g2, b2, a2;
+        int   ir, ig, ib, ia;
+        r1 = (float) ((c1 >> 24)        ) * F_NUM_1_255;
+        g1 = (float) ((c1 >> 16) & 0xff ) * F_NUM_1_255;
+        b1 = (float) ((c1 >>  8) & 0xff ) * F_NUM_1_255;
+
+        r2 = (float) ((c2 >> 24)        ) * F_NUM_1_255;
+        g2 = (float) ((c2 >> 16) & 0xff ) * F_NUM_1_255;
+        b2 = (float) ((c2 >>  8) & 0xff ) * F_NUM_1_255;
+        a2 = (float) ((c2      ) & 0xff ) * F_NUM_1_255;
+
+        ir = (int)((r1 * r2) * 255.0f);
+        ig = (int)((g1 * g2) * 255.0f);
+        ib = (int)((b1 * b2) * 255.0f);
+        ia = (int)((a1 * a2) * 255.0f);
+
+        return fromRGBA(ir, ig, ib, ia);
+}
+```
+컬러끼리 int 연산으로 계산하는 방법
+```c
+t_rgba mul_int(t_rgba c1, t_rgba c2)
+{
+        unsigned int r1, g1, b1, a1;
+        unsigned int r2, g2, b2, a2;
+        unsigned int r, g, b, a;
+        r1 = (c1 >> 24)       ; r2 = (c2 >> 24);
+        g1 = (c1 >> 16) & 0xff; g2 = (c2 >> 16) & 0xff;
+        b1 = (c1 >>  8) & 0xff; b2 = (c2 >>  8) & 0xff;
+        a1 = (c1      ) & 0xff; a2 = (c2      ) & 0xff;
+        r = (r1 * r2) / 255;
+        g = (r1 * r2) / 255;
+        b = (r1 * r2) / 255;
+        a = (r1 * r2) / 255;
+        return fromRGBA(r,g,b,a);
+}
+```
