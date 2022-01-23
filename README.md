@@ -30,7 +30,7 @@ linux command
 
 ### vi editor command
 
-####vi editor의 세가지 모드
+#### vi editor의 세가지 모드
 
 - normal mode : 일반적인 상황에서 적용되는 모드. 파일의 내용을 탐색하거나 복사 붙여넣기 하는 등의 기본적인 조작이 가능한 모드
     - i(insert), a(append) : normal mode에서 insert mode로 넘어가는 키. i, a 모두 insert mode로 넘어가지만 i는 현재 커서의 위치 그대로 insert mode로 넘어가며 a는 다음 위치로 커서가 옮겨지는 차이점이 있다.
@@ -855,25 +855,93 @@ preprocessing과정에선
 
 ### macro definition
 
-\#define <identifier> <replacement token list>
-\#undef
-replace as text
-괼호를 잘 쳐야 함
-(a) a * a x
-(a) * (a)
+```c
+#define <identifier> <replacement token list>  //macro 정의
+#undef <identifier> //macro 정의 해제
+```
+macro는 preprocessing 단계에서 text로 replace됨
+> ⚠️주의 : 괼호를 잘 쳐야 함  
+> #define sqr(a) a * a // X. sqr(1+5) -> 1+5 * 1+5가 됨  
+> #define sqr(a) (a) * (a) // O. sqr(1+5) -> (1+5) * (1+5)가 됨 
 
-special macro
+### Order Expansion of Function Macro
 
-Token stringication #
+1. Stringification(#) operations
+1. Parameters
+1. Concatenation operations
+1. Tokens expand
 
-\#define str(s) #s
+expansion order를 확인 해볼 수 있는예시
+```c
+#define HE HI
+#define LLO _THERE
+#define HELLO "HI THERE"
+#define CAT(a,b) a##b
+#define XCAT(a,b) CAT(a,b)
+#define CALL(fn) fn(HE,LLO)
+CAT(HE,LLO) // "HI THERE", because concatenation occurs before normal expansion
+XCAT(HE,LLO) // HI_THERE, because the tokens originating from parameters ("HE" and "LLO") are expanded first
+CALL(CAT) // "HI THERE", because parameters are expanded first
+```
 
-Token Concatenation
+### Special Macro
 
-ex) #define DECLARE_STRUCT_TYPE(name) typedef struct name##s name##t
+- \_\_FILE__ : string 형태의 파일 이름으로 변환됨
+- \_\_LINE__ : int 형태의 현재 line 번호로 변환됨
 
-최적화  
+사용 예시
+```c
+//test.c
+
+#include <stdio.h>
+
+int main()
+{
+        printf("file : %s, line : %d\n", __FILE__, __LINE__);
+}
+````
+```bash
+$ cc test.c
+$ a.out
+file : test.c, line : 5
+```
+#### Token stringication \#
+
+```c
+#define str(s) #s // 이 매크로를 선언하면
+str(p = "foo\n";) // outputs "p = \"foo\\n\";"
+str(\n)           // outputs "\n
+//위와 같이 자동으로 파라미터에 입력된 문자열을 그대로 출력할 수 있는 형태로 변환해줌
+
+#define xstr(s) str(s) //expansion order를 이용한 응용
+#define foo 4
+str (foo)  // outputs "foo"
+xstr (foo) // outputs "4"
+```
+
+### Token Concatenation
+
+```c
+#define DECLARE_STRUCT_TYPE(name) typedef struct name##_s name##_t
+
+DECLARE_STRUCT_TYPE(g_object);
+    // Outputs: typedef struct g_object_s g_object_t;
+```
+- Token Concatenation을 사용하지 않은 것과 차이점?
+    - Token을 연속으로 사용할 때 Concatenation을 사용하면 붙여서 쓸 수 있다.
+```c
+#define sq(a) aaa
+sq(b) //output : aaa
+#define sq(a) a a a
+sq(b) //output : b b b
+#define sq(a) a##a##a
+sq(b) //output : bbb
+```
+
+### gcc optimization
+#### 최적화에 대한 기본적인 이해
 예시 코드  
+```c
 int fn(int a)
 {
     int b;
@@ -885,112 +953,498 @@ int main()
     int a = 100;
     b = fn(a);
 }
+```
 
-cat을 cay로 잘못 썼을 때
-^y^t
+- 함수가 호출되면 함수의 메모리 stack이 생성됨
+    - int a를 받기 위한 메모리
+    - int b의 메모리
+    - return될 값을 저장할 메모리
 
-cc -E : cpp 파일 만들기
-cc -S : assembly 파일 만들기
-cc -c : object 파일 만들기
-cc -o : excutable 파일 만들기
+- 위의 code의 fn함수에서 b는 사용되지 않은 파라미터임
+    - 그러므로 optimize될 때 int b; 는 지워진다.
+
+그렇다면
+```c
+b = fn(a); //함수 호출하기
+b = a * a; //직접 계산하기
+```
+두 코드의 차이점은?
+
+- 성능?
+    - 직접 계산 > 함수 호출
+- 코드 길이?
+    - 함수 호출 > 직접 계산
+    - 10줄 짜리 코드를 함수로 사용하면 함수를 사용할 때 코드 한줄만 차지한다.
+    - 해당 계산이 필요할 때 코드를 직접 작성하면 사용할 때 마다 10줄 씩 작성해야 한다.
+
+\#define으로 macro를 정의해 사용하면?
+- 함수를 사용하듯이 코드의 길이를 줄이면서 성능도 직접 코드를 작성하는것과 같은 성능을 얻을 수 있다.
+- c++ 에서는 함수를 정의할 때 inline 키워드를 사용하면 함수를 사용하는 부분에서 함수가 코드로 삽입되어 성능 면에서 좋다.
+> ⚠️ 주의 : #define을 사용할 땐 괄호 등을 적절히 주의하여 잘 사용하여 컴파일 해야 함
+
+### linux tip
+명령어를 잘못 입력했을 때
+- ^(수정 할 부분)^(대신 삽입 될 부분)
+예시
+```bash
+$ cay test.c
+$ ^y^t
+cat test.c
+int fn(int a)
+{
+    int b;
+    return a * a;
+}
+
+int main()
+{
+    int a = 100;
+    b = fn(a);
+}
+```
+- gcc options
+    - -E : preprocessing이 완료된 cpp 파일 생성 옵션
+    - -S : compile이 완료된 assembly code 파일 생성 옵션
+    - -c : assemble이 완료된 object 파일 생성 옵션
+    - -o : linking까지 완료된 excutable 파일을 원하는 경로와 이름으로 생성하는 옵션
 
 ### CPP processing
 
-유니코드
+- Character set
+    - utf-8 (유니코드)
 
-LF, CR, LF문자를 CR로 바꿈
-\
+- Initial processing
+    1. LF, CR, LF 문자(줄바꿈 코드들)를 CR로 바꿈
+    1. if -trigraphs
+    1. long line with "\\" -> merge
+    ```c
+    a = "abc
+    de"; //error
+    a = "abc\
+    de"; // output : a = "abcde";
+    ```
+    1. 모든 comment를 "" 로 변환하여 지움
+
+- Tokenization with space
+    ```c
+    #define foo() bar  
+    foo()bar -> bar bar // barbar가 아님
+    // barbar가 되려면 concatenate 사용
+    ```
+- processing language
+    - inclusion of header / Macro Expansion / Conditional Compile / Line Control Diagnostics
+
+### Macro Definition tips
+
+- #define을 여러줄에 걸쳐 쓰기
+    - 위에서 설명한 back slash("\\")사용
+- 정의해야 하는 위치?
+    - 어디에든 가능
+    - 마지막으로 정의한 macro가 작동함
+- 함수 형태의 macro
+    - if문을 사용하는 함수가 필요한 부분에서 ? 조건문을 사용한 macro를 사용하면 성능이 매우 좋아짐
+    - 괄호에 주의
+    - omit parameter
+        ```c
+        #define min(X, Y) ((X) < (Y) ? (X) : (Y))
+        min(, b) // output : (( ) < (b) ? ( ) : (b))
+        ```
+        - macro를 사용할 때 파라미터가 없어도 잘 작동함
+        > ⚠️주의 : 그러나 파라미터의 개수는 잘 맞춰야 함
+- 위에서 설명한 stringization, concatenation을 잘 사용하면 좋음
+- variadic
+    - 파라미터의 갯수에 따라 다르게 작동할 수 있도록 macro를 작성 가능
+    - printf가 이를 활용한 코드의 예시
+    ```c
+    #define eprintf(...) fprintf (stderr, __VA_ARGS__)
+    eprintf ("%s:%d: ", input_file, lineno)  // output : fprintf (stderr, "%s:%d: ", input_file, lineno)
+    #define eprintf(format, ...) fprintf (stderr, format __VA_OPT__(,) __VA_ARGS__)
+    ```
+- Misnesting
+    ```c
+    #define twice(x) (2*(x))
+    #define call_with_1(x) x(1)
+    call_with_1 (twice)  // - >twice(1) -> (2*(1))
+    #define strange(file) fprintf (file, "%s %d",
+    strange(stderr) p, 35); //  fprintf (stderr, "%s %d", p, 35);
+    ```
+    - 어려운 기법임
+
+- predefined macros
+    - All Standards
+        - \_\_FILE__ - Filename with full path string
+        - \_\_LINE__ - Decimal number of current line
+    - C99
+        - \_\_DATE__ - run date string
+        - \_\_TIME__ - run time string
+        - \_\_STDC__ - 1 or 0 if standards // 0 is with -traditional-cpp
+        - \_\_STD_VERSION__ , \_\_STDC_HOSTED__, \_\_cplusplus \_\_OBJC__, \_\_ASSEMBLER__
+    - GNU C Extension
+        - \_\_COUNTER (generate uniq id), \_\_GFORTRAN, \_\_GNUC__, __GNU_MINOR, \_\_FILE_NAME\__,  
 
 ## Lecture09
 
-### 프로젝트 설명
-임베디드 시스템을 위한 고정소수점 수학 라이브러리 개발
+### 프로젝트
 
-cpu의 성능이 다 다름
+- 임베디드 시스템을 위한 고정소수점 수학 라이브러리 개발
 
-8, 16, 32, 64 비트 컴퓨터의 차이?
-처리하는 단위
+#### 개발 의의
+- floating point연산은 int 연산에 비해 비용이 많이 요구되는 연산임
+- 또한 IoT등에 사용되는 저렴한 cpu에는 floting point 연산을 한 사이클 내에 시켜줄 수 있는 math unit이 없는 경우도 많음
+- 그렇기에 int 연산을 이용하여 고정 소수점 연산을 개발하면 임베디드 시스템 등에서의 실수 연산에서 유용하게 사용될 수 있음
 
-cpu의 중요한 두가지 기능
-alu(수학 연산) cu(제어)
+#### 개발 목표
 
-사칙연산 논리연산들은 하드웨어적으로 구현됨
-사칙연산 논리연산은 단위 사이클만에 끝남
-근데 곱셈 나눗셈은 단위 사이클만에 안끝날 수도 있음 -> ALU의 성능에 따라 다름
+- cpu 마다 한번에 처리하는 데이터의 크기가 다름
+    - 8bit cpu, 16bit cpu, 32bit cpu, 64bit cpu 등
+- 그러므로 각각의 학생한테 서로 다른 정수부, 소수부의 길이의 조합이 과제로 주어질 것
+    - ex) #define FX_S_15_16 11516 // sign형 정수부 15, 소수부 16 길이를 갖는 고정소수점 자료형을 구현해야 함
 
-사람마다 서로 다른 정수부, 소수부의 길이의 조합 네 가지가 과제로 주어질 것
-ex) #define FX_S_15_16 11516
+#### 개발 실습
 
-최소 차이를 계산해서 보고서에서 설명해야 함
-0.000000 + 0.000000 : 0.000000
-0.000015 + 0.000015 : 0.000031 이런 차이가 나는 이유도 설명
+정수부 15, 소수부 16길이 signed 고정 소수점 개발을 같이 실습하며 연습해 보았다.
 
-모든 표현 가능한 범위에서 
+##### 부동 소수점, 고정 소수점 간의 변환
+- 부동 소수점 -> 고정 소수점
+```c
+typedef int fixed32;
 
-### gcc -g 옵션
+#define FX_2_PLUS_16 (1<<16)
 
-gdb : GNU Debugger
+fixed32 fromFloat(float fa)
+{
+        return (fixed32)(fa * FX_2_PLUS_16);
+}
+// fromFloat(0.99) return 64880
+```
 
-cc -g 옵션으로 컴파일 하면 debug info가 포함된 실행파일이 생성됨
-gdb a.out로 실행
+- 고정 소수점 -> 부동 소수점
+```c
+#define FX_2_MINUS_16 1.52587890625e-05F
 
-### gdb command
-run 프로그램 실행
-where 
-list 
-    ex) list 10:
-        list main.c
-        list 10, 30
-help
-pwd : 현재 디렉토리를 출력하는 명령어
-print : 현재 스코프 안의 변수를 지정해서 값을 출력할 수 있는 명령어
-step : 
-next : 
-break
-delete
-delete breakpoints
-ni == next
-bt back trace
+float toFloat(fixed32 xa)
+{
+        return (float)(xa) * FX_2_MINUS_16;
+}
+// toFloat(64880) return 0.98990
+```
+
+- floating point로 0.99를 입력받아 fixed point로 변환하여 %d로 출력했을 때 64880이 출력됨
+- fixed point로 64880을 입력받아 floating point로 변환하여 %f로 출력했을 때 0.98990이 출력됨
+
+ 0.0001 의 오차가 발생했다. 이는 기존의 수에서 0.01% 정도의 비율로 fixed point를 이용하여 얻는 이득에 비해 매우 적은 오차이다. 
+
+##### 고정 소수점의 합
+
+1. 부동 소수점으로 변환하여 합한 후 고정 소수점으로 변환
+    ```c
+    fixed32 fxAdd(fixed32 a, fixed32 b)
+    {
+            return fromFloat((toFloat(a) + toFloat(b)));
+    }
+    ```
+1. 부동 소수점끼리 바로 합산
+    ```c
+    fixed32 fxAdd2(fixed32 a, fixed32 b)
+    {
+        return a + b;  
+    }
+    ```
+
+- fixed point가 표현할 수 있는 모든 범위의 값을 for문을 이용해 어느정도 건너 뛰면서 합을 한 결과
+    - 기본적으로 1번, 2번 방법의 계산 결과에 차이가 없음
+    - 2번 연산을 통해 overflow가 발생하면 계산 결과에 차이가 생길 수 있음
+        - 그러나 이는 데이터의 길이의 문제 이므로 계산 방법이 잘못된 것이 아님
+- 연산량에 있어서 뛰어난 것은 2번 방식임
+    - 그러므로 2번 방식을 이용해 구현해야 한다.
+
+##### 고정 소수점에서의 최소 단위
+
+최소 단위를 계산하고 그것이 왜 최소 단위인지에 대해 고찰하여 보고서에 작성해야 함
+
+- FX_S_15_16의 경우에선 최소단위가 2 ^ (-16) 임
+
+### Debugging
+
+Debugging : 코드의 버그를 잡는 것
+
+- cc -g 옵션 : debug info가 포함된 실행파일을 컴파일 하는 옵션
+
+#### gdb
+
+gdb : GNU Debugger의 약자
+
+- debug info가 포함된 a.out을 gdb로 debugging하기 위해 실행
+    - gdb a.out로 실행
+
+##### gdb command
+- run : 프로그램 실행
+- where : Call stack 출력
+- list : 원하는 위치의 code를 출력하는 명령어 
+    - parameter 없음 : 현재 위치에서 부터 코드 10줄 출력
+    - parameter 함수 이름 : 함수의 코드 출력
+    - parameter num1, num2 : 'num1'줄에서 'num2'줄까지 코드 출력
+- help : 명령어에 대한 도움말을 출력
+- pwd : 현재 디렉토리를 출력
+- print : 현재 스코프 안의 변수의 값을 출력
+- step : 코드를 한줄 씩 실행하는 명령
+- next : 현재 소스코드의 다음 줄을 실행하는 명령
+    - step은 fprintf를 만났을 때 fprintf 함수로 넘어간다.
+    - next는 fprintf를 만났을 때 함수의 처리를 끝낸 다음 현재 소스코드의 다음 줄로 넘어간다.
+- break : break point를 지정하는 명령
+- quit : gdb 종료 명령어
+- continue : 현재 위치에서 계속 실행하는 명령
+- alias : 단축 명령어를 지정하는 명령
+- delete : breakpoint를 삭제하는 명령
+    - delete num : num번째 break point를 삭제하는 명령
+    - delete breakpoints : 모든 break point를 삭제하는 명령
+- ni : next 명령의 alias
+- bt : back trace의 약자. Call stack을 출력하는 다른 명령어
+- watch : 변수에 감시점을 설정하는 명령. 감시점이 설정된 변수는 값이 바뀔 때 break가 걸림
 
 ## Lecture10
 
 ### core dumped
 
-core dump ? 프로그램이 실행되는 중의 메모리 상태인 core를 기록하는 것
+core dumped : 프로그램이 실행되는 중의 메모리 상태인 core를 기록하는 것
 
+- core dumped 발생 예시 코드
 ```c
 int main()
 {       
-        int a = 10/0;
-} 
+        int a = 10/0; // 0으로 나누는 exception으로 인해 core dumped가 발생
+}
 ```
-고의 코어 덤프 발생 코
-/var/lib/apport/coredump : core 파일이 있는 경로
-gdb a.out 코어파일 경로 : core가 dump된 원인을 출력해줌
 
-- visual studio
-    - empty project
+#### core 가 생성되도록 설정 변경
 
-### float
+- apport : 에러보고 서비스  
+    - /var/lib/apport/coredump : apport service가 작동중일 때 dumped된 core가 저장되는 경로
 
-float 는 c언어에서 실수의 근사치를 표현하기 위한 자료형으로 일반적으로 4바이트를 사용함.
+먼저 apport service를 종료한 다음 core file size의 limit를 변경한다. 
+
+- ulimit -a 명령을 통해 core file size 제한을 확인할 수 있음
+```bash
+$ sudo service apport stop
+$ ulimit -a
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 256271
+max locked memory       (kbytes, -l) 65536
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 256271
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+```
+- ulimit -c unlimited 로 core file size의 크기를 unlimited로 변경
+
+```bash
+$ ulimit -c unlimited
+$ ulimit -a
+core file size          (blocks, -c) unlimited
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 256271
+max locked memory       (kbytes, -l) 65536
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 256271
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+```
+
+gdb (debug_info가 포함된 실행파일) (core경로) : core가 dump된 원인을 출력해줌
+
+```bash
+$ gdb a.out core 
+GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
+Copyright (C) 2018 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from a.out...done.
+[New LWP 4438]
+Core was generated by `a.out'.
+Program terminated with signal SIGFPE, Arithmetic exception.
+#0  0x000055c1cde22609 in main () at coredump.c:3
+3		int a = 10/0;
+(gdb)
+```
+
+### Visual Studio 의 디버깅
+Visual Studio에선 project를 생성하고 source file을 만든 다음 source file에 코드를 작성한 다음 컴파일 하여 실행함
+
+- F5 : 컴파일 명령
+    - 컴파일 옵션
+        - release : 일반 실행파일 생성 옵션
+        - debug : debug info가 포함된 실행파일 생성 옵션 ( cc -g 옵션과 동일한 기능)
+        - x86 : intel 32bit 컴퓨터용 옵션
+        - x64 : intel 64bit 컴퓨터용 옵션
+    - 컴파일 옵션 창
+<div style="text-align : center;">
+    <img src=/images/compile_options.png width="70%"/>
+</div>
+
+- line number 왼쪽 공간을 클릭하여 break point를 설정할 수 있고 해당 line에 빨간 점이 생김
+<div style="text-align : center;">
+    <img src=/images/breakpointSet.png width="50%"/>
+</div>
+
+- 그 외에도 gdb 에서 사용했던 여러 기능들이 GUI로 구현되어 있어 편하게 사용할 수 있음
+<div style="text-align : center;">
+    <img src=/images/debugOp.png width="50%"/>
+</div>
+
+- 또한 Call stack, 변수들의 값, error info 등도 편하게 확인할 수 있게 표시됨
+<div style="text-align : center;">
+    <img src=/images/other_debug_info.png width="100%"/>
+</div>
+
+### 프로젝트 부가 설명
+
+#### float point
+float 는 c언어에서 실수의 근사치를 표현하기 위한 기본자료형으로 일반적으로 4바이트를 사용함.
+
+4바이트 float 자료형은 하나의 sign bit와 8 bit의 exponent, 23bit의 mantissa 값을 가짐
 
 <div style="text-align : center;">
     <img src=/images/float.png width="100%"/>
 </div>
 
-R = (-2s + 1) * 1.mantissa * e ^ (exponential - 127)
+float에 저장된 값은 sign, exponent와 mantissa에 따라 다음과 같다.
 
-profiling
+Val = (-2S + 1) * 1.mantissa * e ^ (exponent - 127)
 
-gcc -pg옵션으로 컴파일 해야 함
+floating point는 한글로 부동 소수점인데 부동의 '부'는 한자로 뜰 부 이다. 즉 소수점의 위치가 자료형 안에서 고정되어있지 않은 소수를 표현하는 자료형어 floating point이다.
 
-profiling하는 이유?
-성능을 측정하기 위해
+#### fixed point
 
-- golden rule
-    - speed - cpu > memory > storage > io > human
+반대로 fixed point는 소수점의 위치가 고정된 자료형이다.
 
-how to use gprof
+fixed FX_S03_04에서의 소수점의 위치를 표현한 예시
+<div style="text-align : center;">
+    <img src=/images/fixed_point_expression.png width="70%"/>
+</div>
+
+- fixed FX_S03_04 는 그림과 같이 하나의 sign bit와 3bit의 정수부, 4bit의 소수부로 나뉜다.
+- 그러므로 exponent에 따라 mantissa bit가 갖는 값이 달라지는 floating point와 달리 b4 bit는 항상 2의 0승 크기를, b2 bit는 항상 2의 -2승 크기를 갖는 것이다. 
+
+그러므로 fixed FX_S03_04 에 저장된 값은 다음과 같이 계산된다.
+
+- b7이 1인 경우  
+    - val = – (~b6 * 2 ^ 2 + ~b5 * 2 ^ 1 + ~b4 * 2 ^ 0 + ~b3 * 2 ^ (-1) + ~b2 * 2 ^ (-2) + ~b1 * 2 ^ (-3) + ~b0 * 2 ^ (-4) + 2 ^ (-4))
+- b7이 0인 경우 
+    - val = b6 * 2 ^ 2 + b5 * 2 ^ 1 + b4 * 2 ^ 0  + b3 * 2 ^ (-1) + b2 * 2 ^ (-2) + b1 * 2 ^ (-3) + b0 * 2 ^ (-4)
+
+int 자료형도 고정소수점의 일종 이라고 할 수 있으며 int 자료형에서 소수점은 b0 bit 뒤에 위치한다.
+- 이를 이해하면 fixed FX_S03_04에 저장된 값은 정수로 표현한 값에 2 ^ (-(소수점의 위치))만큼을 곱한 값과 같다는 사실도 이해할 수 있다.
+    - fixed FX_S03_04는 소수점의 위치가 b4뒤에 있으므로 val은 아래와 같다.
+        - val = 정수로 표현한 값 * 2 ^ (-4)
+
+floating point는 exponent의 크기가 허락하는 범위 내에선 소수의 유효 숫자 갯수가 mantissa가 표현할 수 있는 갯수 안에 들어오면 모두 표현할 수 있지만 fixed point는 일정 자리 이하의 값은 표현할 수 없다.
+> fixed FX_S15_16은 2 ^ (-17)과 2 ^ 16을 표현할 수 없지만 floating point는 가능하다.
+
+#### fixed point의 사칙연산
+
+v_a : fixed point가 저장한 값  
+iv_a : v_a에 저장된 bit를 정수로 표현한 값 (= v_a * 2 ^ (-q))  
+v_b : fixed point가 저장한 값  
+iv_b : v_b에 저장된 bit를 정수로 표현한 값 (= v_b * 2 ^ (-q))
+
+- 덧셈
+    - v = v_a + v_b = (iv_a * 2 ^ (-q)) + (iv_b * 2 ^ (-q)) = (iv_a + iv_b) * 2 ^ (-q)  
+    => iv = iv_a + iv_b 
+- 뺄셈
+    - v = v_a - v_b = (iv_a * 2 ^ (-q)) - (iv_b * 2 ^ (-q)) = (iv_a - iv_b) * 2 ^ (-q)  
+    => iv = iv_a - iv_b 
+- 곱셈
+    - v = v_a * v_b = (iv_a * 2 ^ (-q)) * (iv_b * 2 ^ (-q)) = (iv_a * iv_b) * 2 ^ (-2q)  
+    => iv = iv_a * iv_b * 2 ^ (-q)
+- 나눗셈
+    - v = v_a / v_b = (iv_a * 2 ^ (-q)) / (iv_b * 2 ^ (-q)) = (iv_a * iv_b)
+    => iv = iv_a / (iv_b * 2 ^ q)
+
+### Optimization
+
+프로그램의 성능을 향상시키는 작업을 Optimization이라 한다.
+
+#### 성능에 영향을 미치는 요소
+
+- Golden rule
+    - Speed(작업 속도) - CPU > Memory > Storage > IO > Human
+        - Register > Cache(1st, 2nd) > Memory > ...
+        - 속도가 느린 Hardware를 최대한 덜 사용하도록 해야 성능이 좋아짐
+        - ex) printf는 IO를 수행하는 명령이므로 프로그램 진척도를 printf를 여러번 이용해 출력하는 방식을 사용하면 Optimization에 방해가 많이된다.
+    - Locality : 메모리는 하위 계층의 메모리에서 데이터를 load할 때 사용하고자 하는 데이터 주변의 데이터를 같이 load하는 특징이 있는데 이를 locality라 부른다.
+        - 메모리를 사용할 때 locality에 의해 load된 데이터를 최대한 활용하면 속도가 느린 하위 메모리를 덜 사용할 수 있으므로 성능이 좋아짐
+    - Pipeline
+    - Error : 프로그램에서 Error가 발생하면 Error를 처리하는데 많은 비용이 사용되므로 Error가 최대한 발생하지 않도록 해야함
+
+##### Pipeline
+
+CPU 에서 instruction 하나를 처리할 땐 최대 아래와 같은 5단계를 거친다. Instruction의 종류에 따라 필요하지 않은 단계가 있을 수 있다.
+
+1. Fetch : 실행할 명렬을 메모리에서 읽어서
+1. Decode : 명령어를 해독해 할 일을 파악하고 명령에 필요한 인자를 읽은 뒤
+1. Execute : 명령을 수행하고
+1. Memory : 메모리에 접근하여
+1. Write : 결과를 저장한디.
+
+Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 다음 instruction의 fetch가 시작된 것과 달리 한 Instruction의 fetch가 끝나고 decode 단계가 진행되는 동안 다음 instruction의 fetch가 동시에 진행되도록 하는 방식을 말한다.
+
+그러나 if문에 의해 branch가 발생하면 어느 instruction이 다음에 실행해야 할 instruction인지 알 수 없으므로 pipeline이 깨지게 되고 이는 성능 하락으로 이어짐.
+
+#### profiling
+
+프로그램의 성능을 측정하는 것을 profiling이라고 함
+
+- gprof : GNU profiling 도구의 이름
+
+##### how to use gprof
 - compile with -pg option
     - $ cc -pg -Wall test.c -o test
+- Excute program and generate gmon.out file
+    - $ test
+- Excute gprof
+    - $ gprof test gmon.out
+
+#### Additional Optimization tips
+
+- 함수 호출은 안할 수 있으면 안하는게 좋다
+    - 단순화 시키는 것이 목적이라면 #define macro를 사용하는 것이 효과적이다.
+- profiling으로 나오는 수치는 절대적으로 정확한 것이 아니다.
+    - 성능에 영향을 미칠 수 있는 요소(백그라운드 프로세스 등)를 최대한 줄이고 profiling을 해야 정확도가 높아진다.
+- ? 조건문은 if문과 달리 성능이 좋다.
+
+Q. optimization을 했을 때 debugging이 가능할까?
+> A. optimization을 하면 기존의 코드에서 달라지는 부분이 생기기 때문에 debugging이 불가능하다.
+
+## lecture 11
+
+### gprof option
+-b // --brief -q -p : call graph or runtime
+-z // add unused functions
+-A // Annotation on source, must be compiled with -pg -g
