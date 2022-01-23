@@ -1423,7 +1423,7 @@ Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 �
 
 - gprof : GNU profiling 도구의 이름
 
-#####how to use gprof
+##### how to use gprof
 - compile with -pg option
     - $ cc -pg -Wall test.c -o test
 - Excute program and generate gmon.out file
@@ -1445,6 +1445,7 @@ Q. optimization을 했을 때 debugging이 가능할까?
 ## lecture 11
 
 ### gprof option
+<<<<<<< HEAD
 - -b // --brief -q -p : call graph or runtime
 - -z // add unused functions(사용하지 않은 함수도 나타내줌)  
 
@@ -1552,3 +1553,8 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
         return fromRGBA(r,g,b,a);
 }
 ```
+=======
+-b // --brief -q -p : call graph or runtime
+-z // add unused functions
+-A // Annotation on source, must be compiled with -pg -g
+>>>>>>> fae9d12cb1a1a91fdf477f8a7c66b1a26e47bed9
