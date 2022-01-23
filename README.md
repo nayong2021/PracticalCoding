@@ -1423,7 +1423,7 @@ Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 �
 
 - gprof : GNU profiling 도구의 이름
 
-#####how to use gprof
+##### how to use gprof
 - compile with -pg option
     - $ cc -pg -Wall test.c -o test
 - Excute program and generate gmon.out file
