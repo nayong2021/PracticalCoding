@@ -13,7 +13,7 @@ t_rgba mul_float(t_rgba c1, t_rgba c2)
 	g1 = (float) ((c1 >> 16) & 0xff	) * F_NUM_1_255;
 	b1 = (float) ((c1 >>  8) & 0xff	) * F_NUM_1_255;
 	a1 = (float) ((c1      ) & 0xff	) * F_NUM_1_255;
-	
+
 	r2 = (float) ((c2 >> 24)	) * F_NUM_1_255;
 	g2 = (float) ((c2 >> 16) & 0xff	) * F_NUM_1_255;
 	b2 = (float) ((c2 >>  8) & 0xff	) * F_NUM_1_255;
@@ -36,10 +36,10 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
 	g1 = (c1 >> 16) & 0xff; g2 = (c2 >> 16) & 0xff;
 	b1 = (c1 >>  8) & 0xff; b2 = (c2 >>  8) & 0xff;
 	a1 = (c1      ) & 0xff; a2 = (c2      ) & 0xff;
-	r = (r1 * r2) >> 8;
-	g = (r1 * r2) >> 8;
-	b = (r1 * r2) >> 8;
-	a = (r1 * r2) >> 8;
+	r = (r1 * r2) / 255;
+	g = (r1 * r2) / 255;
+	b = (r1 * r2) / 255;
+	a = (r1 * r2) / 255;
 	return fromRGBA(r,g,b,a);
 }
 
