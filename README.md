@@ -30,7 +30,7 @@ linux command
 
 ### vi editor command
 
-####vi editor의 세가지 모드
+#### vi editor의 세가지 모드
 
 - normal mode : 일반적인 상황에서 적용되는 모드. 파일의 내용을 탐색하거나 복사 붙여넣기 하는 등의 기본적인 조작이 가능한 모드
     - i(insert), a(append) : normal mode에서 insert mode로 넘어가는 키. i, a 모두 insert mode로 넘어가지만 i는 현재 커서의 위치 그대로 insert mode로 넘어가며 a는 다음 위치로 커서가 옮겨지는 차이점이 있다.
@@ -1387,24 +1387,60 @@ iv_b : v_b에 저장된 bit를 정수로 표현한 값 (= v_b * 2 ^ (-q))
     - v = v_a / v_b = (iv_a * 2 ^ (-q)) / (iv_b * 2 ^ (-q)) = (iv_a * iv_b)
     => iv = iv_a / (iv_b * 2 ^ q)
 
-### profiling
+### Optimization
+
+프로그램의 성능을 향상시키는 작업을 Optimization이라 한다.
+
+#### 성능에 영향을 미치는 요소
+
+- Golden rule
+    - Speed(작업 속도) - CPU > Memory > Storage > IO > Human
+        - Register > Cache(1st, 2nd) > Memory > ...
+        - 속도가 느린 Hardware를 최대한 덜 사용하도록 해야 성능이 좋아짐
+        - ex) printf는 IO를 수행하는 명령이므로 프로그램 진척도를 printf를 여러번 이용해 출력하는 방식을 사용하면 Optimization에 방해가 많이된다.
+    - Locality : 메모리는 하위 계층의 메모리에서 데이터를 load할 때 사용하고자 하는 데이터 주변의 데이터를 같이 load하는 특징이 있는데 이를 locality라 부른다.
+        - 메모리를 사용할 때 locality에 의해 load된 데이터를 최대한 활용하면 속도가 느린 하위 메모리를 덜 사용할 수 있으므로 성능이 좋아짐
+    - Pipeline
+    - Error : 프로그램에서 Error가 발생하면 Error를 처리하는데 많은 비용이 사용되므로 Error가 최대한 발생하지 않도록 해야함
+
+##### Pipeline
+
+CPU 에서 instruction 하나를 처리할 땐 최대 아래와 같은 5단계를 거친다. Instruction의 종류에 따라 필요하지 않은 단계가 있을 수 있다.
+
+1. Fetch : 실행할 명렬을 메모리에서 읽어서
+1. Decode : 명령어를 해독해 할 일을 파악하고 명령에 필요한 인자를 읽은 뒤
+1. Execute : 명령을 수행하고
+1. Memory : 메모리에 접근하여
+1. Write : 결과를 저장한디.
+
+Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 다음 instruction의 fetch가 시작된 것과 달리 한 Instruction의 fetch가 끝나고 decode 단계가 진행되는 동안 다음 instruction의 fetch가 동시에 진행되도록 하는 방식을 말한다.
+
+그러나 if문에 의해 branch가 발생하면 어느 instruction이 다음에 실행해야 할 instruction인지 알 수 없으므로 pipeline이 깨지게 되고 이는 성능 하락으로 이어짐.
+
+#### profiling
 
 프로그램의 성능을 측정하는 것을 profiling이라고 함
 
 - gprof : GNU profiling 도구의 이름
 
-#### profiling의 목적
-
-프로그램의 성능을 측정하기 위해서
-
-- golden rule
-    - speed - cpu > memory > storage > io > human
-    - Register > Cache(1st, 2nd) > Memory > ...
-    속도가 cpu로 갈수록 빠르므로 프로그램의 성능을 개선하려면 최대한 속도가 빠른 쪽에 저장된 데이터를 많이 활용할 수 있도록 해야함
-    - locality
-how to use gprof
+#####how to use gprof
 - compile with -pg option
     - $ cc -pg -Wall test.c -o test
+- Excute program and generate gmon.out file
+    - $ test
+- Excute gprof
+    - $ gprof test gmon.out
+
+#### Additional Optimization tips
+
+- 함수 호출은 안할 수 있으면 안하는게 좋다
+    - 단순화 시키는 것이 목적이라면 #define macro를 사용하는 것이 효과적이다.
+- profiling으로 나오는 수치는 절대적으로 정확한 것이 아니다.
+    - 성능에 영향을 미칠 수 있는 요소(백그라운드 프로세스 등)를 최대한 줄이고 profiling을 해야 정확도가 높아진다.
+- ? 조건문은 if문과 달리 성능이 좋다.
+
+Q. optimization을 했을 때 debugging이 가능할까?
+> A. optimization을 하면 기존의 코드에서 달라지는 부분이 생기기 때문에 debugging이 불가능하다.
 
 ## lecture 11
 
