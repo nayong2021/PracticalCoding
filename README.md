@@ -1552,3 +1552,188 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
         return fromRGBA(r,g,b,a);
 }
 ```
+
+## lecture 12
+
+### Make (GNU make)
+
+#### make file의 필요성
+1. 소스파일이 많아 관리할 방법이 필요함
+1. 여러 요소에 따라 컴파일 방법이 달라짐
+    - 타겟시스템이 다르거나
+    - 컴파일 목적이 달라지거나(디버그, 릴리즈, 프리프로세서...)
+    - 타겟의 디펜던시에 따라 컴파일 하는 방법이 달라져야 함
+
+이를 해결하기 위해 Make가 탄생했다.
+
+#### Make 사용법
+
+- Makefile에 다음의 내용을 작성함
+    - target을 작성(주로 생성될 파일)
+    - target의 dependencies를 지정함
+    - target의 dependencies를 이용해 생성하는 명령을 작성
+- make 명령으로 target을 dependencies를 재귀적으로 돌며 생성함
+    - 현재 디렉토리의 Makefile을 이용해 명령을 수행함
+    - make -f other-makefile : 다른 Makefile을 이용해 make 명령을 실행
+- 파일 수정 time-stamp에 따라 재컴파일함
+
+#### Makefile 작성법
+
+##### target
+```vim
+target: dependency files  
+tab	   (Commands to execute if dependency files changes)  
+```
+예시
+```vim
+main.o: main.c main.h
+    cc -c main.c -o main.o
+```
+- target은 main.o 이고 main.o가 생성되려면 main.c, main.h 파일이 있어야 한다.
+- main.o가 없으면 make 명령은 main.c, main.h파일을 이용해 main.o를 생성한다.
+- main.o가 생성된 다음 main.c, main.h파일이 수정된 다음 make 명령을 다시 실행하면 main.o가 재컴파일 된다.
+    - 만약 main.o가 존재하는데 main.c, main.h의 time-stamp가 변하지 않았는데 make 명령이 호출됐을 땐 재컴파일하지 않는다.
+##### Macro
+- Macro 정의  
+
+NAME = string
+
+```Makefile
+OBJS = main.o data.o
+```
+- Macro 활용
+
+$(NAME)
+```Makefile
+$(OBJS) # output : main.o data.o
+```
+내부에 정의된 변수
+- $@ : target name
+- $< : 첫번째 dependency file의 이름
+##### default shell
+make 명령을 처리하는 default shell은 /bin/sh 이다. 이를 변경하고자 하면
+```Makefile
+SHELL:=/bin/bash b: SHELL:=/bin/bash
+```
+과 같이 바꿀 수 있다. 위의 예시는 bash로 shell을 변경하는 코드이다. 
+
+#### time-stamp 의 변경에 의한 recompiling
+Make는 target의 dependency files의 time-stamp의 modification time이 변경되면 make 명령이 호출됐을 때 이를 인지하고 target을 recompile 한다.
+##### touch
+
+- 이전에 touch 명령을 실습했을 땐 없던 파일을 touch 명령을 이용해 빈 파일을 생성했다.  
+- 그러나 touch 명령의 기본적인 기능은 이미 존재하는 파일의 modification time 을 현재 시간으로 변경하는 명령이다.
+
+touch 명령문 실행 예시
+```bash
+$ ls -al main.c
+-rw-r--r-- 1 pcc011 pcc 213  1월 24 15:07 main.c
+$ touch main.c
+$ ls -al main.c
+-rw-r--r-- 1 pcc011 pcc 213  1월 24 23:35 main.c
+```
+touch 명령을 실행하자 main.c의 수정시간이 15:07에서 23:35로 변경된 것을 확인할 수 있다.
+
+time-stamp 가 변경되어 recompile 되는 것을 touch 명령을 이용해 확인해 보았다.
+```bash
+$ make
+cc -c -Wall -g -pg main.c
+cc main.o fx_s15_16.o -Wall -g -pg -o main
+$ make
+make: 'main' is up to date.
+$ touch main.c
+$ make
+cc -c -Wall -g -pg main.c
+cc main.o fx_s15_16.o -Wall -g -pg -o main
+```
+두번 째 make는 time-stamp가 마지막 make이후 변경되지 않아 무시되었지만 main.c에 touch 명령을 실행하자 make 명령에 의해 recompile이 되는 것을 확인했다.
+
+##### Pre-defined Macro
+<div style="text-align : center;">
+    <img src=/images/pre-defined_macro.png width="100%"/>
+</div>
+
+##### Suffix Rule
+파일의 확장자에 따라 연산을 수행하게 만드는 규칙.
+- 가령 .c 는 확장자로 c를 갖는 파일을 가리킨다.
+
+.SURFIXES: .o .c .s
+
+```bash
+.c.o:
+		$(CC) $(CFLAGS) -c $<
+```
+.c 확장자를 갖는 파일을 이용해 object file을 컴파일 하도록 하는 suffix rule
+```
+.s.o:
+		$(AS) $(ASFLAGS) -o $@ $<
+```
+.s 확장자를 갖는 파일을 이용해 object file을 컴파일 하도록 하는 suffix rule
+
+##### gccmakedep
+gccmakedep 명령은 Makefile에 원하는 소스코드의 dependency files를 자동으로 지정해줌
+
+### CMake
+make는 shell command에 기반하여 만들어져서 project의 규모가 커져가는 현대에 사용하기에 너무 복잡하다는 한계가 있다. 그래서 보다 단순하고 간편한 CMake가 탄생하게 되었다.
+
+#### make vs cmake
+- make
+```bash
+OBJS = test1.o test2.o test3.o 
+test: $(OBJS)
+	gcc -o $@ $^
+
+test1.o: test1.c head1.h head2.h
+	gcc -c $<
+test2.o: test2.c 
+	gcc -c $?
+test3.o: test3.c
+	gcc –c $*.c
+clean: 
+	\rm -f $(OBJS) test 
+```
+- cmake
+```cmake
+project(mytest)
+ADD_EXECUTABLE(mytest test1.c test2.c test3.c)
+```
+
+#### CMake 실습
+make실습에 사용한 소스코드를 CMake를 이용해 컴파일 하는 실습을 해보았다.  
+CMake를 이용해 컴파일 하려면 아래와 같이 CMakeLists.txt파일을 작성해야 한다.
+```cmake
+#CMakeLists.txt
+
+project(main)
+ADD_EXECUTABLE(main main.c fx_s15_16.c)
+```
+그 다음 cmake명령을 실행했더니 MakeLists.txt를 이용해 make파일이 생성되고 make명령을 이용해 컴파일을 할 수 있었다.
+```bash
+$ cmake .
+-- The C compiler identification is GNU 7.5.0
+-- The CXX compiler identification is GNU 7.5.0
+-- Check for working C compiler: /usr/bin/cc
+-- Check for working C compiler: /usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/course/pcc011/pcc/lec12/cmaketest
+$ make
+Scanning dependencies of target main
+[ 33%] Building C object CMakeFiles/main.dir/main.c.o
+[ 66%] Building C object CMakeFiles/main.dir/fx_s15_16.c.o
+[100%] Linking C executable main
+[100%] Built target main
+$ main
+1.000000 : 65536
+0.390000 : 0.389969
+```
