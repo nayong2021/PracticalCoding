@@ -1,0 +1,5 @@
+total 12
+drwxr-xr-x  2 pcc011 pcc 4096  1월 25 15:13 .
+drwxr-xr-x 18 pcc011 pcc 4096  1월 25 14:09 ..
+-rw-r--r--  1 pcc011 pcc    0  1월 25 15:13 output.txt
+-rw-r--r--  1 pcc011 pcc   19  1월 25 15:13 test.c
