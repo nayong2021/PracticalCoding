@@ -1743,7 +1743,7 @@ $ main
 ### CPU Code
 - Intel i7-980k
 <div style="text-align : center;">
-    <img src=/images/cpu_code.png width="100%"/>
+    <img src=/images/cpu_code.png width="70%"/>
 </div>
 
 - Cache : 상당히 빠른 메모리
@@ -1841,7 +1841,7 @@ system 함수 : 명령어 처리기를 호출하여 매개변수로 입력한 �
 #### function system() definition
 ```c
 #include <stdlib.h> // 헤더파일 stdlib.h 에 정의됨
-int system(const char *command); / 매개변수로 명령어를 문자열 형태로 입력받음
+int system(const char *command); // 매개변수로 명령어를 문자열 형태로 입력받음
 execl("/bin/sh", "sh", "-c", command, (char *) 0); //실제로 실행되는 함수
 int execl(const char *path, const char *arg, ... /* (char  *) NULL */);
 ```
@@ -1854,4 +1854,338 @@ system함수 실행 예시
     - /bin/sh 쉘을 이용해 ls -li 명령을 실행하는 명령어임
 
 ### fork
+
+실행중인 프로세스를 복사하여 새로운 프로세스를 생성하는 함수
+```c
+#include <sys/types.h>
+#include <unistd.h>
+pid_t fork(void);
+
+#define _GNU_SOURCE
+#include <sched.h>
+long clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
+```
+fork는 process를 복제한 다음 child process의 pid를 pid_t type으로 반환한다.
+- pid_t : process의 pid를 저장하는 type
+- pid : process를 구분하기 위해 process가 생성될 때 부여되는 id
+
+#### forktest.c #1
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid;
+    pid = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1) ;
+        printf("PID %d A=%d i=%d : \n", pid, a++, i);
+    }
+}
+```
+프로세스를 fork한 뒤 각각의 프로세스에서 for문을 이용해 1초 간격으로 a에 1을 더해가면서 fork의 return값과 a, i의 값을 출력하는 프로그램
+
+실행결과
+```bash
+$ a.out 
+PID 15042 A=0 i=0 : 
+PID 0 A=0 i=0 : 
+PID 15042 A=1 i=1 : 
+PID 0 A=1 i=1 : 
+PID 15042 A=2 i=2 : 
+PID 0 A=2 i=2 : 
+PID 15042 A=3 i=3 : 
+PID 0 A=3 i=3 : 
+PID 15042 A=4 i=4 : 
+PID 0 A=4 i=4 : 
+PID 15042 A=5 i=5 : 
+PID 0 A=5 i=5 : 
+.
+.
+.
+$ a.out &
+[1] 15571
+$ ps
+  PID TTY          TIME CMD
+ 2078 pts/5    00:00:00 bash
+15571 pts/5    00:00:00 a.out
+15572 pts/5    00:00:00 a.out
+15573 pts/5    00:00:00 ps
+$ PID 15572 A=0 i=0 : 
+PID 0 A=0 i=0 : 
+PID 15572 A=1 i=1 : 
+PID 0 A=1 i=1 : 
+PID 15572 A=2 i=2 : 
+PID 0 A=2 i=2 : 
+.
+.
+.
+PID 15572 A=9 i=9 : 
+PID 0 A=9 i=9 : 
+PID 15572 A=10 i=10 : 
+PID 0 A=10 i=10 : 
+kill -9 15572 # 15572 process kill 명령
+$ PID 15572 A=11 i=11 : 
+PID 15572 A=12 i=12 : 
+PID 15572 A=13 i=13 : 
+PID 15572 A=14 i=14 : 
+PID 15572 A=15 i=15 : 
+PID 15572 A=16 i=16 : 
+.
+.
+.
+```
+- fork는 context 전체를 복제하므로 child process와 parent process는 서로 다른 메모리 공간을 사용한다.
+    - 그러므로 child process와 parent process에서의 a 값은 개별적으로 상승한다.
+    - background로 a.out을 실행했을 때 한 process를 kill -9 pid 를 이용해 강제로 종료해도 서로 다른 Memory를 사용하는 별개의 process이므로 kill되지 않은 다른 process에 영향을 끼치지 않는다.
+- fork 함수를 호출한 process에서는 생성된 child process의 pid를 return 한다.
+- fork로 생성된 child process에는 0을 return 한다.
+    - 그러므로 한 process는 pid의 값을 출력할 때 0을, 다른 하나는 0이 아닌 값을 출력하는데 0을 출력하는 process는 child process이며 다른 값을 출력하는 process는 parent process이다.
+
+#### fork의 return 값에 따른 작업 부여
+fork의 return값이 child process에선 0, parent process에선 child process의 pid라는 점을 이용해 서로 다른 작업을 부여할 수 있다.
+
+#### forktest.c #2
+
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid ,pid2;
+    pid = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1);
+        if (pid == 0) // child processs는 a를 증가시키고
+            printf("PID %d : A=%d : i=%d : \n", pid, a++, i);
+        else // parent process는 a를 감소시킴
+            printf("PID %d : A=%d : i=%d : \n", pid, a--, i);
+    }
+}
+```
+실행결과
+```bash
+$ a.out 
+PID 19616 : A=0 : i=0 : 
+PID 0 : A=0 : i=0 : 
+PID 19616 : A=-1 : i=1 : 
+PID 0 : A=1 : i=1 : 
+PID 19616 : A=-2 : i=2 : 
+PID 0 : A=2 : i=2 : 
+PID 19616 : A=-3 : i=3 : 
+PID 0 : A=3 : i=3 : 
+PID 19616 : A=-4 : i=4 : 
+PID 0 : A=4 : i=4 : 
+.
+.
+.
+```
+#### fork 연속 두번 호출
+#### forktest.c #3
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid ,pid2;
+    pid = fork();
+    pid2 = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1);
+        printf("PID %d : PID2 %d : A=%d : i=%d : \n", pid, pid2, a++, i);
+    }
+}
+```
+Q. fork를 두 번 호출했을 때 생성되는 프로세스 개수는?
+> A. 최초에 실행된 프로세스를 a라 불렀을 때 첫번 째 fork에서 child process 하나 생성  
+생성된 child process를 b라고 할 때 그 다음 줄에서 a, b 모두 child process를 하나씩 더 fork  
+두개의 child process가 더 생성되므로 총 생성되는 프로세스는 4개
+
+forktest.c #3 실행결과
+```bash
+$ a.out 
+PID 19940 : PID2 19941 : A=0 : i=0 : #최초에 실행된 프로세스
+PID 19940 : PID2 0 : A=0 : i=0 : #최초에 실행된 프로세스가 두번째 fork에서 생성한 child process
+PID 0 : PID2 19942 : A=0 : i=0 : #첫 fork에서 생성된 child process
+PID 0 : PID2 0 : A=0 : i=0 : #첫 fork에서 생성된 child process가 두번째 fork에서 생성한 child process
+PID 19940 : PID2 19941 : A=1 : i=1 : 
+PID 19940 : PID2 0 : A=1 : i=1 : 
+PID 0 : PID2 19942 : A=1 : i=1 : 
+PID 0 : PID2 0 : A=1 : i=1 : 
+PID 19940 : PID2 19941 : A=2 : i=2 : 
+PID 19940 : PID2 0 : A=2 : i=2 : 
+PID 0 : PID2 19942 : A=2 : i=2 : 
+PID 0 : PID2 0 : A=2 : i=2 : 
+.
+.
+.
+$ a.out &
+[1] 22114
+$ ps
+  PID TTY          TIME CMD
+ 2078 pts/5    00:00:00 bash
+22114 pts/5    00:00:00 a.out
+22115 pts/5    00:00:00 a.out
+22116 pts/5    00:00:00 a.out
+22117 pts/5    00:00:00 a.out
+22122 pts/5    00:00:00 ps
+```
+### thread vs pthread
+- thread.h (C11)
+```c
+#include <threads.h>
+#include <stdio.h>
+
+int run(void *arg)
+{
+    printf("Hello world of C11 threads.");
+    return 0;
+}
+
+int main(int argc, const char *argv[])
+{
+    thrd_t thread;
+    int result;
+    thrd_create(&thread, run, NULL);
+    thrd_join(&thread, &result);
+    printf("Thread return %d at the end\n", result);
+}
+```
+- pthread.h (POSIX)
+    - linux에서 사용하는 표준으로 실전코딩 실습 환경에서 사용하는 라이브러리
+```c
+#include <pthread.h>
+#include <stdio.h>
+
+void *run (void *arg)
+{
+    printf("Hello world of POSXI threads.");
+    return 0;
+
+}
+
+int main()
+{
+	pthread_t thread;
+	int result; 
+	pthread_create(&thread, NULL, run, NULL );
+	pthread_join(thread, &result);
+	printf("Thread return %d at the end\n", result);
+}
+```
+### pthread.h API
+- pthread_create
+```c
+int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);
+```
+생성 함수 start_routine을 실행
+
+- pthread_exit
+```c
+void pthread_exit(void *retval);
+```
+pthread_exit를 호출한 thread가 종료됨  
+main thread가 이 함수로 종료되어도 다른 thread들은 동작한다.
+
+- pthread_join
+```c
+int pthread_join(pthread_t thread, void **retval);
+```
+매개변수로 주어진 thread가 종료될 때까지 wait 하는 함수  
+Synchronization을 위해 사용한다.  
+만약 thread가 이미 종료되었다면 즉시 리턴한다.
+
+* pthread_canel
+```c
+void pthread_cancel(pthread_t thread);
+```
+thread에 취소 요청을 보냄
+
+- pthread_self
+```c
+pthread_t pthread_self(void);
+```
+pthread_self를 호출한 thread의 id를 return
+
+- pthread_equal
+```c
+int pthread_equal(pthread_t t1, pthread_t t2);
+```
+t1, t2의 thread id를 비교한다.
+
+#### threadtest.c
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+
+int bbb = 0;
+
+void fn_s()
+{
+    static int a = 0;
+    printf("== %d %d ==\n",a++, bbb++);
+}
+
+
+void *run (void *arg)
+{
+    printf("Hello world of POSXI threads.%d\n", (int) pthread_self() );
+    for (int i = 0; i < 100; i++)
+        {
+                sleep(1);
+                fn_s();
+        }
+    return 0;
+
+}
+
+int main()
+{
+        pthread_t thread1;
+        int result1;
+        pthread_create(&thread1, NULL, run, NULL );
+        run((void *) 0);
+        pthread_join(thread1, (void **) &result1);
+        printf("Thread return %d at the end\n", result1);
+}
+```
+실습에서 버퍼에서 flush되지 않아서 출력이 나오지 않던 문제를 printf문에 줄바꿈 문자를 삽입해 해결
+
+실행결과
+```bash
+$ a.out 
+Hello world of POSXI threads.-1262057664
+Hello world of POSXI threads.-1270536448
+== 0 0 ==
+== 1 1 ==
+== 2 2 ==
+== 3 3 ==
+== 4 4 ==
+== 5 5 ==
+== 6 6 ==
+== 7 7 ==
+== 8 8 ==
+== 9 9 ==
+.
+.
+.
+```
+thread끼리는 같은 메모리를 공유하기 때문에 a의 값이 공유되는 것을 확인할 수 있었다.
+## Lecture 14
 
