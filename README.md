@@ -1442,7 +1442,7 @@ Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 �
 Q. optimization을 했을 때 debugging이 가능할까?
 > A. optimization을 하면 기존의 코드에서 달라지는 부분이 생기기 때문에 debugging이 불가능하다.
 
-## lecture 11
+## Lecture 11
 
 ### gprof options
 - -b // --brief -q -p : call graph or runtime
@@ -1553,7 +1553,7 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
 }
 ```
 
-## lecture 12
+## Lecture 12
 
 ### Make (GNU make)
 
@@ -1678,7 +1678,7 @@ make는 shell command에 기반하여 만들어져서 project의 규모가 커�
 
 #### make vs cmake
 - make
-```bash
+```makefile
 OBJS = test1.o test2.o test3.o 
 test: $(OBJS)
 	gcc -o $@ $^
@@ -1737,3 +1737,121 @@ $ main
 1.000000 : 65536
 0.390000 : 0.389969
 ```
+
+## Lecture 13
+
+### CPU Code
+- Intel i7-980k
+<div style="text-align : center;">
+    <img src=/images/cpu_code.png width="100%"/>
+</div>
+
+- Cache : 상당히 빠른 메모리
+    - shared L3 Cache : cpu 세개가 l3캐시를 공유함
+- Intel i7-980k에는 Core가 6개 있음
+    - 이는 논리적으로 CPU가 6개 있는것과 같음
+
+**Core == Processor**
+
+Processor는 명령을 처리하는 장치
+
+Q. Core가 6개면 어떤 프로그램 하나를 6개의 Core에서 나눠서 수행할 수 있나?  
+> A. 불가능. 작업(job) 하나는 하나의 코어에서 실행  
+
+#### Linux Job
+Shell에서 사용하는 개념으로 분리하지 않고 interactive하게 시작된 프로그램을 말한다. Daemon에 반대되는 개념의 프 로그램이다. Job은 메모리에 올라갈 때 process들로 쪼개진다.
+
+#### Daemon
+사용자가 직접적으로 제어하지 않고, 백그라운드에서 돌면서 여러 작업을 하는 프로그램을 말한다. 메모리에 상주하면서 특정 요청이 오면 즉시 대응 할 수 있는 리스너와 같은 역할을 한다.
+
+### process
+스토리지에 저장된 프로그램을 실행하여 메모리에 프로그램이 load되어 실행할 수 있는 상태의 프로그램
+
+#### context switching
+- 컴퓨터를 사용할 때 메모리에는 매우 많은 process들이 load되어 있다(실습 서버 기준 2000~3000개 정도).
+- 그러나 Processor의 개수는 process의 개수에 비해 매우 적다.
+
+각각의 Processor가 Process를 나눠서 담당한다.  
+그리고 하나의 Processor는 시간을 쪼개서 돌아가면서 Process를 수행하는데 이를 CPU Scheduling이라 한다.
+
+그리고 Processor가 CPU Scheduling에 의해 수행중이던 Process의 상태를 저장하고 다른 Process를 수행하기 위해 CPU로 Process의 정보를 load 해오는 과저을 context switching 이라 한다.
+
+#### Process의 상태
+
+Process의 상태는 크게 세 가지 Run, Stop, Kill로 나뉨
+
+1. Run : Process가 CPU에서 실행되고 있는 상태
+    1. foreground
+    1. background
+1. Stop : Process가 Memory에 load되었으나 실행이 멈춰있는 상태
+    - Foreground에서 실행중이던 Process를 Ctrl + Z 키를 통해 stop 시킬 수 있음.
+1. Kill : Process가 종료된 상태
+
+stop된 Process를 run하기 위한 명령어
+1. fg : Stop 상태이거나 background로 실행중인 Process를 foreground로 실행하는 명령어
+    - 파라미터 없이 실행 : 마지막으로 stop된 프로세스를 foreground에서 실행
+    - fg %(job number) : job number에 해당하는 job을 fore ground에서 실행
+    ```bash
+    vi test.1
+
+    [1]+  Stopped                 vi test.1
+    $ vi test.2
+    
+    [2]+  Stopped                 vi test.2
+    $ vi test.3
+
+    [3]+  Stopped                 vi test.3
+    $ jobs
+    [1]   Stopped                 vi test.1
+    [2]-  Stopped                 vi test.2
+    [3]+  Stopped                 vi test.3
+    $ fg %2 # vi test.2가 실행됨
+    ```
+1. bg : stop된 프로세스를 background에서 실행
+    - 파라미터 없이 실행 : 마지막으로 stop된 프로세스를 background에서 실행
+    - bg %(job number) : job number에 해당하는 job을 background에서 실행
+
+### linux command
+- jobs : 현재 쉘에서 stop 상태의 job과 background에서 실행중인 job의 목록을 job number, 상태 와 함께 출력함
+
+/proc/cpuinfo : cpu 정보가 담긴 파일
+
+### vi command
+- (command mode) ! + 명령어 : vi를 stop시키고 명령을 shell에서 실행함
+- (command mode) r + 파일명 : 파일을 읽어옴
+- (command mode) r + ! + 명령어 : 명령어의 결과를 읽어옴
+    - 예시
+        - :!ls : vi를 stop시키고 ls명령을 쉘에서 실행함
+        - :r output.txt : output.txt파일을 읽어서 현재 커서 위치에 파일의 내용을 삽입함
+        - :r!ls : ls명령을 실행하여 출력을 현재 커서 위치에 삽입함
+
+### Thread
+Context switching이 일어나면 일반적으로
+1. 기존에 수행하던 작업의 정보를 Memory에 저장한 다음
+1. 다음에 수행할 작업의 정보를 Memory에서 Core로 읽어온 다음
+1. 읽어온 작업을 다시 시작한다.
+
+그러나 Memory에 접근하는 것은 CPU가 명령을 처리하는 속도에 비해 매우 시간이 오래 걸리는 작업이다.  
+그래서 Core내에 여러개의 작업을 저장해놓고 Core내부에서 Context Switching이 일어날 수 있도록 Core내에서 작업을 추가로 저장할 수 있는 CPU 구성요소가 바로 Thread이다.
+
+### System - System Call
+
+system 함수 : 명령어 처리기를 호출하여 매개변수로 입력한 명령어를 실행하는 함수
+
+#### function system() definition
+```c
+#include <stdlib.h> // 헤더파일 stdlib.h 에 정의됨
+int system(const char *command); / 매개변수로 명령어를 문자열 형태로 입력받음
+execl("/bin/sh", "sh", "-c", command, (char *) 0); //실제로 실행되는 함수
+int execl(const char *path, const char *arg, ... /* (char  *) NULL */);
+```
+execl 함수 : 다른 프로그램을 실행하는 함수  
+
+system함수 실행 예시
+1. system("ls -li");
+1. => execl("/bin/sh", "sh", "-c", "ls -li", (char *) 0);
+1. => /bin/sh -c ls -li 를 실행함
+    - /bin/sh 쉘을 이용해 ls -li 명령을 실행하는 명령어임
+
+### fork
+
