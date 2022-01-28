@@ -1442,7 +1442,7 @@ Pipeline은 기존에 한 instruction에서 모든 단계가 끝난 다음에 �
 Q. optimization을 했을 때 debugging이 가능할까?
 > A. optimization을 하면 기존의 코드에서 달라지는 부분이 생기기 때문에 debugging이 불가능하다.
 
-## lecture 11
+## Lecture 11
 
 ### gprof options
 - -b // --brief -q -p : call graph or runtime
@@ -1552,3 +1552,783 @@ t_rgba mul_int(t_rgba c1, t_rgba c2)
         return fromRGBA(r,g,b,a);
 }
 ```
+
+## Lecture 12
+
+### Make (GNU make)
+
+#### make file의 필요성
+1. 소스파일이 많아 관리할 방법이 필요함
+1. 여러 요소에 따라 컴파일 방법이 달라짐
+    - 타겟시스템이 다르거나
+    - 컴파일 목적이 달라지거나(디버그, 릴리즈, 프리프로세서...)
+    - 타겟의 디펜던시에 따라 컴파일 하는 방법이 달라져야 함
+
+이를 해결하기 위해 Make가 탄생했다.
+
+#### Make 사용법
+
+- Makefile에 다음의 내용을 작성함
+    - target을 작성(주로 생성될 파일)
+    - target의 dependencies를 지정함
+    - target의 dependencies를 이용해 생성하는 명령을 작성
+- make 명령으로 target을 dependencies를 재귀적으로 돌며 생성함
+    - 현재 디렉토리의 Makefile을 이용해 명령을 수행함
+    - make -f other-makefile : 다른 Makefile을 이용해 make 명령을 실행
+- 파일 수정 time-stamp에 따라 재컴파일함
+
+#### Makefile 작성법
+
+##### target
+```vim
+target: dependency files  
+tab	   (Commands to execute if dependency files changes)  
+```
+예시
+```vim
+main.o: main.c main.h
+    cc -c main.c -o main.o
+```
+- target은 main.o 이고 main.o가 생성되려면 main.c, main.h 파일이 있어야 한다.
+- main.o가 없으면 make 명령은 main.c, main.h파일을 이용해 main.o를 생성한다.
+- main.o가 생성된 다음 main.c, main.h파일이 수정된 다음 make 명령을 다시 실행하면 main.o가 재컴파일 된다.
+    - 만약 main.o가 존재하는데 main.c, main.h의 time-stamp가 변하지 않았는데 make 명령이 호출됐을 땐 재컴파일하지 않는다.
+##### Macro
+- Macro 정의  
+
+NAME = string
+
+```Makefile
+OBJS = main.o data.o
+```
+- Macro 활용
+
+$(NAME)
+```Makefile
+$(OBJS) # output : main.o data.o
+```
+내부에 정의된 변수
+- $@ : target name
+- $< : 첫번째 dependency file의 이름
+##### default shell
+make 명령을 처리하는 default shell은 /bin/sh 이다. 이를 변경하고자 하면
+```Makefile
+SHELL:=/bin/bash b: SHELL:=/bin/bash
+```
+과 같이 바꿀 수 있다. 위의 예시는 bash로 shell을 변경하는 코드이다. 
+
+#### time-stamp 의 변경에 의한 recompiling
+Make는 target의 dependency files의 time-stamp의 modification time이 변경되면 make 명령이 호출됐을 때 이를 인지하고 target을 recompile 한다.
+##### touch
+
+- 이전에 touch 명령을 실습했을 땐 없던 파일을 touch 명령을 이용해 빈 파일을 생성했다.  
+- 그러나 touch 명령의 기본적인 기능은 이미 존재하는 파일의 modification time 을 현재 시간으로 변경하는 명령이다.
+
+touch 명령문 실행 예시
+```bash
+$ ls -al main.c
+-rw-r--r-- 1 pcc011 pcc 213  1월 24 15:07 main.c
+$ touch main.c
+$ ls -al main.c
+-rw-r--r-- 1 pcc011 pcc 213  1월 24 23:35 main.c
+```
+touch 명령을 실행하자 main.c의 수정시간이 15:07에서 23:35로 변경된 것을 확인할 수 있다.
+
+time-stamp 가 변경되어 recompile 되는 것을 touch 명령을 이용해 확인해 보았다.
+```bash
+$ make
+cc -c -Wall -g -pg main.c
+cc main.o fx_s15_16.o -Wall -g -pg -o main
+$ make
+make: 'main' is up to date.
+$ touch main.c
+$ make
+cc -c -Wall -g -pg main.c
+cc main.o fx_s15_16.o -Wall -g -pg -o main
+```
+두번 째 make는 time-stamp가 마지막 make이후 변경되지 않아 무시되었지만 main.c에 touch 명령을 실행하자 make 명령에 의해 recompile이 되는 것을 확인했다.
+
+##### Pre-defined Macro
+<div style="text-align : center;">
+    <img src=/images/pre-defined_macro.png width="100%"/>
+</div>
+
+##### Suffix Rule
+파일의 확장자에 따라 연산을 수행하게 만드는 규칙.
+- 가령 .c 는 확장자로 c를 갖는 파일을 가리킨다.
+
+.SURFIXES: .o .c .s
+
+```bash
+.c.o:
+		$(CC) $(CFLAGS) -c $<
+```
+.c 확장자를 갖는 파일을 이용해 object file을 컴파일 하도록 하는 suffix rule
+```
+.s.o:
+		$(AS) $(ASFLAGS) -o $@ $<
+```
+.s 확장자를 갖는 파일을 이용해 object file을 컴파일 하도록 하는 suffix rule
+
+##### gccmakedep
+gccmakedep 명령은 Makefile에 원하는 소스코드의 dependency files를 자동으로 지정해줌
+
+### CMake
+make는 shell command에 기반하여 만들어져서 project의 규모가 커져가는 현대에 사용하기에 너무 복잡하다는 한계가 있다. 그래서 보다 단순하고 간편한 CMake가 탄생하게 되었다.
+
+#### make vs cmake
+- make
+```makefile
+OBJS = test1.o test2.o test3.o 
+test: $(OBJS)
+	gcc -o $@ $^
+
+test1.o: test1.c head1.h head2.h
+	gcc -c $<
+test2.o: test2.c 
+	gcc -c $?
+test3.o: test3.c
+	gcc –c $*.c
+clean: 
+	\rm -f $(OBJS) test 
+```
+- cmake
+```cmake
+project(mytest)
+ADD_EXECUTABLE(mytest test1.c test2.c test3.c)
+```
+
+#### CMake 실습
+make실습에 사용한 소스코드를 CMake를 이용해 컴파일 하는 실습을 해보았다.  
+CMake를 이용해 컴파일 하려면 아래와 같이 CMakeLists.txt파일을 작성해야 한다.
+```cmake
+#CMakeLists.txt
+
+project(main)
+ADD_EXECUTABLE(main main.c fx_s15_16.c)
+```
+그 다음 cmake명령을 실행했더니 MakeLists.txt를 이용해 make파일이 생성되고 make명령을 이용해 컴파일을 할 수 있었다.
+```bash
+$ cmake .
+-- The C compiler identification is GNU 7.5.0
+-- The CXX compiler identification is GNU 7.5.0
+-- Check for working C compiler: /usr/bin/cc
+-- Check for working C compiler: /usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/course/pcc011/pcc/lec12/cmaketest
+$ make
+Scanning dependencies of target main
+[ 33%] Building C object CMakeFiles/main.dir/main.c.o
+[ 66%] Building C object CMakeFiles/main.dir/fx_s15_16.c.o
+[100%] Linking C executable main
+[100%] Built target main
+$ main
+1.000000 : 65536
+0.390000 : 0.389969
+```
+
+## Lecture 13
+
+### CPU Code
+- Intel i7-980k
+<div style="text-align : center;">
+    <img src=/images/cpu_code.png width="70%"/>
+</div>
+
+- Cache : 상당히 빠른 메모리
+    - shared L3 Cache : cpu 세개가 l3캐시를 공유함
+- Intel i7-980k에는 Core가 6개 있음
+    - 이는 논리적으로 CPU가 6개 있는것과 같음
+
+**Core == Processor**
+
+Processor는 명령을 처리하는 장치
+
+Q. Core가 6개면 어떤 프로그램 하나를 6개의 Core에서 나눠서 수행할 수 있나?  
+> A. 불가능. 작업(job) 하나는 하나의 코어에서 실행  
+
+#### Linux Job
+Shell에서 사용하는 개념으로 분리하지 않고 interactive하게 시작된 프로그램을 말한다. Daemon에 반대되는 개념의 프 로그램이다. Job은 메모리에 올라갈 때 process들로 쪼개진다.
+
+#### Daemon
+사용자가 직접적으로 제어하지 않고, 백그라운드에서 돌면서 여러 작업을 하는 프로그램을 말한다. 메모리에 상주하면서 특정 요청이 오면 즉시 대응 할 수 있는 리스너와 같은 역할을 한다.
+
+### process
+스토리지에 저장된 프로그램을 실행하여 메모리에 프로그램이 load되어 실행할 수 있는 상태의 프로그램
+
+#### context switching
+- 컴퓨터를 사용할 때 메모리에는 매우 많은 process들이 load되어 있다(실습 서버 기준 2000~3000개 정도).
+- 그러나 Processor의 개수는 process의 개수에 비해 매우 적다.
+
+각각의 Processor가 Process를 나눠서 담당한다.  
+그리고 하나의 Processor는 시간을 쪼개서 돌아가면서 Process를 수행하는데 이를 CPU Scheduling이라 한다.
+
+그리고 Processor가 CPU Scheduling에 의해 수행중이던 Process의 상태를 저장하고 다른 Process를 수행하기 위해 CPU로 Process의 정보를 load 해오는 과저을 context switching 이라 한다.
+
+#### Process의 상태
+
+Process의 상태는 크게 세 가지 Run, Stop, Kill로 나뉨
+
+1. Run : Process가 CPU에서 실행되고 있는 상태
+    1. foreground
+    1. background
+1. Stop : Process가 Memory에 load되었으나 실행이 멈춰있는 상태
+    - Foreground에서 실행중이던 Process를 Ctrl + Z 키를 통해 stop 시킬 수 있음.
+1. Kill : Process가 종료된 상태
+
+stop된 Process를 run하기 위한 명령어
+1. fg : Stop 상태이거나 background로 실행중인 Process를 foreground로 실행하는 명령어
+    - 파라미터 없이 실행 : 마지막으로 stop된 프로세스를 foreground에서 실행
+    - fg %(job number) : job number에 해당하는 job을 fore ground에서 실행
+    ```bash
+    vi test.1
+
+    [1]+  Stopped                 vi test.1
+    $ vi test.2
+    
+    [2]+  Stopped                 vi test.2
+    $ vi test.3
+
+    [3]+  Stopped                 vi test.3
+    $ jobs
+    [1]   Stopped                 vi test.1
+    [2]-  Stopped                 vi test.2
+    [3]+  Stopped                 vi test.3
+    $ fg %2 # vi test.2가 실행됨
+    ```
+1. bg : stop된 프로세스를 background에서 실행
+    - 파라미터 없이 실행 : 마지막으로 stop된 프로세스를 background에서 실행
+    - bg %(job number) : job number에 해당하는 job을 background에서 실행
+
+### linux command
+- jobs : 현재 쉘에서 stop 상태의 job과 background에서 실행중인 job의 목록을 job number, 상태 와 함께 출력함
+
+/proc/cpuinfo : cpu 정보가 담긴 파일
+
+### vi command
+- (command mode) ! + 명령어 : vi를 stop시키고 명령을 shell에서 실행함
+- (command mode) r + 파일명 : 파일을 읽어옴
+- (command mode) r + ! + 명령어 : 명령어의 결과를 읽어옴
+    - 예시
+        - :!ls : vi를 stop시키고 ls명령을 쉘에서 실행함
+        - :r output.txt : output.txt파일을 읽어서 현재 커서 위치에 파일의 내용을 삽입함
+        - :r!ls : ls명령을 실행하여 출력을 현재 커서 위치에 삽입함
+
+### Thread
+Context switching이 일어나면 일반적으로
+1. 기존에 수행하던 작업의 정보를 Memory에 저장한 다음
+1. 다음에 수행할 작업의 정보를 Memory에서 Core로 읽어온 다음
+1. 읽어온 작업을 다시 시작한다.
+
+그러나 Memory에 접근하는 것은 CPU가 명령을 처리하는 속도에 비해 매우 시간이 오래 걸리는 작업이다.  
+그래서 Core내에 여러개의 작업을 저장해놓고 Core내부에서 Context Switching이 일어날 수 있도록 Core내에서 작업을 추가로 저장할 수 있는 CPU 구성요소가 바로 Thread이다.
+
+### System - System Call
+
+system 함수 : 명령어 처리기를 호출하여 매개변수로 입력한 명령어를 실행하는 함수
+
+#### function system() definition
+```c
+#include <stdlib.h> // 헤더파일 stdlib.h 에 정의됨
+int system(const char *command); // 매개변수로 명령어를 문자열 형태로 입력받음
+execl("/bin/sh", "sh", "-c", command, (char *) 0); //실제로 실행되는 함수
+int execl(const char *path, const char *arg, ... /* (char  *) NULL */);
+```
+execl 함수 : 다른 프로그램을 실행하는 함수  
+
+system함수 실행 예시
+1. system("ls -li");
+1. => execl("/bin/sh", "sh", "-c", "ls -li", (char *) 0);
+1. => /bin/sh -c ls -li 를 실행함
+    - /bin/sh 쉘을 이용해 ls -li 명령을 실행하는 명령어임
+
+### fork
+
+실행중인 프로세스를 복사하여 새로운 프로세스를 생성하는 함수
+```c
+#include <sys/types.h>
+#include <unistd.h>
+pid_t fork(void);
+
+#define _GNU_SOURCE
+#include <sched.h>
+long clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
+```
+fork는 process를 복제한 다음 child process의 pid를 pid_t type으로 반환한다.
+- pid_t : process의 pid를 저장하는 type
+- pid : process를 구분하기 위해 process가 생성될 때 부여되는 id
+
+#### forktest.c #1
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid;
+    pid = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1) ;
+        printf("PID %d A=%d i=%d : \n", pid, a++, i);
+    }
+}
+```
+프로세스를 fork한 뒤 각각의 프로세스에서 for문을 이용해 1초 간격으로 a에 1을 더해가면서 fork의 return값과 a, i의 값을 출력하는 프로그램
+
+실행결과
+```bash
+$ a.out 
+PID 15042 A=0 i=0 : 
+PID 0 A=0 i=0 : 
+PID 15042 A=1 i=1 : 
+PID 0 A=1 i=1 : 
+PID 15042 A=2 i=2 : 
+PID 0 A=2 i=2 : 
+PID 15042 A=3 i=3 : 
+PID 0 A=3 i=3 : 
+PID 15042 A=4 i=4 : 
+PID 0 A=4 i=4 : 
+PID 15042 A=5 i=5 : 
+PID 0 A=5 i=5 : 
+.
+.
+.
+$ a.out &
+[1] 15571
+$ ps
+  PID TTY          TIME CMD
+ 2078 pts/5    00:00:00 bash
+15571 pts/5    00:00:00 a.out
+15572 pts/5    00:00:00 a.out
+15573 pts/5    00:00:00 ps
+$ PID 15572 A=0 i=0 : 
+PID 0 A=0 i=0 : 
+PID 15572 A=1 i=1 : 
+PID 0 A=1 i=1 : 
+PID 15572 A=2 i=2 : 
+PID 0 A=2 i=2 : 
+.
+.
+.
+PID 15572 A=9 i=9 : 
+PID 0 A=9 i=9 : 
+PID 15572 A=10 i=10 : 
+PID 0 A=10 i=10 : 
+kill -9 15572 # 15572 process kill 명령
+$ PID 15572 A=11 i=11 : 
+PID 15572 A=12 i=12 : 
+PID 15572 A=13 i=13 : 
+PID 15572 A=14 i=14 : 
+PID 15572 A=15 i=15 : 
+PID 15572 A=16 i=16 : 
+.
+.
+.
+```
+- fork는 context 전체를 복제하므로 child process와 parent process는 서로 다른 메모리 공간을 사용한다.
+    - 그러므로 child process와 parent process에서의 a 값은 개별적으로 상승한다.
+    - background로 a.out을 실행했을 때 한 process를 kill -9 pid 를 이용해 강제로 종료해도 서로 다른 Memory를 사용하는 별개의 process이므로 kill되지 않은 다른 process에 영향을 끼치지 않는다.
+- fork 함수를 호출한 process에서는 생성된 child process의 pid를 return 한다.
+- fork로 생성된 child process에는 0을 return 한다.
+    - 그러므로 한 process는 pid의 값을 출력할 때 0을, 다른 하나는 0이 아닌 값을 출력하는데 0을 출력하는 process는 child process이며 다른 값을 출력하는 process는 parent process이다.
+
+#### fork의 return 값에 따른 작업 부여
+fork의 return값이 child process에선 0, parent process에선 child process의 pid라는 점을 이용해 서로 다른 작업을 부여할 수 있다.
+
+#### forktest.c #2
+
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid ,pid2;
+    pid = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1);
+        if (pid == 0) // child processs는 a를 증가시키고
+            printf("PID %d : A=%d : i=%d : \n", pid, a++, i);
+        else // parent process는 a를 감소시킴
+            printf("PID %d : A=%d : i=%d : \n", pid, a--, i);
+    }
+}
+```
+실행결과
+```bash
+$ a.out 
+PID 19616 : A=0 : i=0 : 
+PID 0 : A=0 : i=0 : 
+PID 19616 : A=-1 : i=1 : 
+PID 0 : A=1 : i=1 : 
+PID 19616 : A=-2 : i=2 : 
+PID 0 : A=2 : i=2 : 
+PID 19616 : A=-3 : i=3 : 
+PID 0 : A=3 : i=3 : 
+PID 19616 : A=-4 : i=4 : 
+PID 0 : A=4 : i=4 : 
+.
+.
+.
+```
+#### fork 연속 두번 호출
+#### forktest.c #3
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main()
+{
+    int a = 0;
+    pid_t pid ,pid2;
+    pid = fork();
+    pid2 = fork();
+    for (int i = 0; i < 100; i++)
+    {
+        sleep(1);
+        printf("PID %d : PID2 %d : A=%d : i=%d : \n", pid, pid2, a++, i);
+    }
+}
+```
+Q. fork를 두 번 호출했을 때 생성되는 프로세스 개수는?
+> A. 최초에 실행된 프로세스를 a라 불렀을 때 첫번 째 fork에서 child process 하나 생성  
+생성된 child process를 b라고 할 때 그 다음 줄에서 a, b 모두 child process를 하나씩 더 fork  
+두개의 child process가 더 생성되므로 총 생성되는 프로세스는 4개
+
+forktest.c #3 실행결과
+```bash
+$ a.out 
+PID 19940 : PID2 19941 : A=0 : i=0 : #최초에 실행된 프로세스
+PID 19940 : PID2 0 : A=0 : i=0 : #최초에 실행된 프로세스가 두번째 fork에서 생성한 child process
+PID 0 : PID2 19942 : A=0 : i=0 : #첫 fork에서 생성된 child process
+PID 0 : PID2 0 : A=0 : i=0 : #첫 fork에서 생성된 child process가 두번째 fork에서 생성한 child process
+PID 19940 : PID2 19941 : A=1 : i=1 : 
+PID 19940 : PID2 0 : A=1 : i=1 : 
+PID 0 : PID2 19942 : A=1 : i=1 : 
+PID 0 : PID2 0 : A=1 : i=1 : 
+PID 19940 : PID2 19941 : A=2 : i=2 : 
+PID 19940 : PID2 0 : A=2 : i=2 : 
+PID 0 : PID2 19942 : A=2 : i=2 : 
+PID 0 : PID2 0 : A=2 : i=2 : 
+.
+.
+.
+$ a.out &
+[1] 22114
+$ ps
+  PID TTY          TIME CMD
+ 2078 pts/5    00:00:00 bash
+22114 pts/5    00:00:00 a.out
+22115 pts/5    00:00:00 a.out
+22116 pts/5    00:00:00 a.out
+22117 pts/5    00:00:00 a.out
+22122 pts/5    00:00:00 ps
+```
+### thread vs pthread
+- thread.h (C11)
+```c
+#include <threads.h>
+#include <stdio.h>
+
+int run(void *arg)
+{
+    printf("Hello world of C11 threads.");
+    return 0;
+}
+
+int main(int argc, const char *argv[])
+{
+    thrd_t thread;
+    int result;
+    thrd_create(&thread, run, NULL);
+    thrd_join(&thread, &result);
+    printf("Thread return %d at the end\n", result);
+}
+```
+- pthread.h (POSIX)
+    - linux에서 사용하는 표준으로 실전코딩 실습 환경에서 사용하는 라이브러리
+```c
+#include <pthread.h>
+#include <stdio.h>
+
+void *run (void *arg)
+{
+    printf("Hello world of POSXI threads.");
+    return 0;
+
+}
+
+int main()
+{
+	pthread_t thread;
+	int result; 
+	pthread_create(&thread, NULL, run, NULL );
+	pthread_join(thread, &result);
+	printf("Thread return %d at the end\n", result);
+}
+```
+### pthread.h API
+- pthread_create
+```c
+int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);
+```
+생성 함수 start_routine을 실행
+
+- pthread_exit
+```c
+void pthread_exit(void *retval);
+```
+pthread_exit를 호출한 thread가 종료됨  
+main thread가 이 함수로 종료되어도 다른 thread들은 동작한다.
+
+- pthread_join
+```c
+int pthread_join(pthread_t thread, void **retval);
+```
+매개변수로 주어진 thread가 종료될 때까지 wait 하는 함수  
+Synchronization을 위해 사용한다.  
+만약 thread가 이미 종료되었다면 즉시 리턴한다.
+
+* pthread_canel
+```c
+void pthread_cancel(pthread_t thread);
+```
+thread에 취소 요청을 보냄
+
+- pthread_self
+```c
+pthread_t pthread_self(void);
+```
+pthread_self를 호출한 thread의 id를 return
+
+- pthread_equal
+```c
+int pthread_equal(pthread_t t1, pthread_t t2);
+```
+t1, t2의 thread id를 비교한다.
+
+#### threadtest.c
+```c
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+
+int bbb = 0;
+
+void fn_s()
+{
+    static int a = 0;
+    printf("== %d %d ==\n",a++, bbb++);
+}
+
+
+void *run (void *arg)
+{
+    printf("Hello world of POSXI threads.%d\n", (int) pthread_self() );
+    for (int i = 0; i < 100; i++)
+        {
+                sleep(1);
+                fn_s();
+        }
+    return 0;
+
+}
+
+int main()
+{
+        pthread_t thread1;
+        int result1;
+        pthread_create(&thread1, NULL, run, NULL );
+        run((void *) 0);
+        pthread_join(thread1, (void **) &result1);
+        printf("Thread return %d at the end\n", result1);
+}
+```
+실습에서 버퍼에서 flush되지 않아서 출력이 나오지 않던 문제를 printf문에 줄바꿈 문자를 삽입해 해결
+
+실행결과
+```bash
+$ a.out 
+Hello world of POSXI threads.-1262057664
+Hello world of POSXI threads.-1270536448
+== 0 0 ==
+== 1 1 ==
+== 2 2 ==
+== 3 3 ==
+== 4 4 ==
+== 5 5 ==
+== 6 6 ==
+== 7 7 ==
+== 8 8 ==
+== 9 9 ==
+.
+.
+.
+```
+thread끼리는 같은 메모리를 공유하기 때문에 a의 값이 공유되는 것을 확인할 수 있었다.
+
+## Lecture 14
+
+### vim tip
+~/.vimrc : vim을 실행할 때 실행할 명령어를 저장하는 파일
+
+vim command
+- set tabstop=(num) : tab을 입력했을 때 이동할 칸의 갯수
+
+### POSIX의 기원
+
+- 컴퓨터 산업회사 DIGITAL
+    - DIGITAL의 역사 요약
+    
+    DIGITAL -> DEC로 개명 -> DIGITAL로 다시 개명 -> Compaq에 인수됨 -> HP에 Compaq이 인수됨 (DIGITAL의 legacy는 HP에 있다고 할 수 있다.)
+
+* C언어의 탄생
+    - DIGITAL는 미니 컴퓨터 PDP 시리즈를 개발했었다. 그 중 PDP-11은 매우 대중적으로 많이 사용되던 제품
+    - PDP-11이 많이 사용되던 시절 PDP-11을 제어하기 위한 언어로 C언어가 Bell Labs에서 탄생했다.
+
+- UNIX
+    - AT&T 산하의 Bell Labs에서 개발된 운영체제로 PDP-11에서도 사용하던 운영체제이다.
+    - C언어가 탄생한 다음 C로 작성된 UNIX의 소스 코드가 배포됨
+
+* UNIX의 상용화
+    - AT&T의 규모가 커져서 독점을 방지하기 위해 회사가 분할됨
+    - 돈을 벌기위해 UNIX의 상표를 등록하고 소스코드를 닫음
+
+- UNIX계열 OS들의 탄생
+    - UNIX가 상용화 되어 대체제가 필요하게 되었음
+    - BSD
+        - UC Berkeley에서 개발한 UNIX계열 OS
+        - Berkeley Software Distribution의 약자
+        - IOS, macOS등의 OS의 기반
+    - Linux
+        - Linus Torvalds가 개발한 kernel
+        - Linux라는 이름은 Linux is not Unix의 약자
+        - GNU project에 포함되게 된다.
+        - GNU
+            - Richard Stallman의 자유 소프트웨어 재단의 OS 프로젝트
+            - GNU is not UNIX의 약자
+
+* POSIX표준의 탄생
+    - UNIX의 API 규격
+    - UNIX계열의 여러 OS들이 모두 규격이 서로 달라졌음
+    - 이를 통일하기 위해 IEEE에서 만든 표준이 POSIX
+
+- UNIX계열 OS가 널리 쓰이게 된 이유
+    - FIPS
+        - 연방정부의 컴퓨터 납품 표준인데 POSIX를 사용
+        - 즉 UNIX계열 OS를 사용하지 않으면 FIPS를 따르지 못함
+
+* 현재 표준화는 ISO에서 한다. 그 중 ISO/IEC JTC 1/SC 22는 프로그래밍 언어의 표준을 개발하는 기구. 
+    - 대표적으로 개발된 표준 : C,  C++
+
+### About Buffer
+
+Q. 저번 마지막 실습에서 a.out 실행 시 출력이 안되고 있던 이유
+> 결론부터 말하자면, 줄바꿈 문자가 없어서 버퍼에서 flush 되지 않았음
+
+#### Buffer의 목적
+- Terminal == Character Device
+    - Character Device : 한 문자 씩 IO를 수행하는 IO Device
+        - 출력을 해야할 때 cpu가 한문자씩 터미널에 출력 명령을 내리는 것은 매우 비효율적 (CPU speed >> IO speed)
+        - 그러므로 속도가 빠른 메모리의 버퍼에 입출력할 데이터를 넣어놓고 특정 방식에 따라 한번에 출력하여 CPU가 IO를 기다리는 시간을 줄이는 것이 Buuffer를 사용하는 목적
+
+#### Buffer 작동방식
+1. FULL BUFFERING
+    - Buffer가 꽉 찼을 때 IO를 수행하는 Buffering 방식
+1. LINE BUFFERING
+    - 줄바꿈 문자가 입력되면 IO를 수행하는 Buffering 방식
+1. NULL BUFFERING 
+    - Buffer를 사용하지 않는 방식. Buffer에 저장되지 않고 바로바로 Character by Character로 출력 됨. Buffer size가 0인것과 같음
+
+#### Buffer 제어방법
+
+1. stdbuf
+    - 표준 스트림에 대해 수정된 버퍼링 작업으로 COMMAND를 실행하는 bash명령어
+    ```bash
+    $ stdbuf --output=0 a.out # stdout에 NULL BUFFERING을 적용하여 실행 
+    ```
+1. setvbuf 
+    - buffer를 설정하는 C언어 함수
+    ```c
+    #include <stdio.h>
+    int setvbuf(FILE *stream, char *buf, int mode, size_t size);
+    ```
+    - mode : Buffer 작동방식 입력
+        1. _IONBF : NULL BUFFERING
+        1. _IOLBF : LINE BUFFERING
+        1. _IOFBF : FULL BUFFERING
+    
+    사용 예시
+    ```c
+    int main()
+    {
+        char bufff[10];
+        setvbuf(stdout, bufff,  _IOFBF,  10);
+    ```
+    예시에선 setvbuf함수로 stdout의 버퍼를 10바이트 크기의 FULL BUFFERING 모드 버퍼로 변경한다.
+1. fflush
+    - flush a stream : 강제로 flush하는 명령어  
+
+정의
+```c
+#include <stdio.h>
+       int fflush(FILE *stream);
+```
+stream으로 입력된 버퍼를 flush 시킨다.  
+
+사용 예시
+```c
+void fn_s()
+{
+    static int a = 0;
+    printf("== %d %d ==",a++, bbb++);
+    fflush();
+}
+```
+기존엔 프로그램이 끝날 때까지 출력이 되지 않던 것이 fflush 함수를 만날 때마다 출력이 되도록 변함.
+
+### 입출력 서식
+입출력 할 때 입출력 서식을 잘 맞추지 않으면 예상치 못한 결과가 나올 수 있으니 잘 맞춰야 한다.
+
+### 동기화
+thread 끼리는 같은 메모리를 공유하는데 여러 thread가 하나의 정보를 수정하려 할 때 예상치 못한 결과가 발생할 수 있음
+
+이 때 thread 들의 명령 수행 시점을 조절하여 정보의 불일치를 방지하는 것을 동기화라 한다.
+
+- Asynchronous Execution
+    - 비동기적 실행 : 동기화 없이 실행하는 것을 의미
+
+#### Mutex
+동기화를 달성하기 위한 수단 중 하나로 한 스레드가 자원을 사용하는 동안 다른 스레드가 자원에 접근하지 못하도록 못하는 방법을 사용한다.(=mutual exclusion)
+- 'mut'ual 'ex'clusion -> mutex
+
+Mutex의 활용
+```c
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // pthread_mutex_t 초기화
+
+pthread_mutex_lock(&mutex); // mutex를 획득 && mutex를 획득하지 못하게 lock을 걸음
+count++;
+pthread_mutex_unlock(&mutex); // mutex의 lock을 풀음
+```
+위와 같은 코드를 사용하면 동시에 하나의 스레드만 count의 값을 변경하도록 할 수 있다.
