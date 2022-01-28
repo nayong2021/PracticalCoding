@@ -33,4 +33,3 @@ int main()
 	pthread_join(thread1, (void **) &result1);
 	printf("Thread return %d at the end\n", result1);
 }
-
