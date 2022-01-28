@@ -2187,5 +2187,148 @@ Hello world of POSXI threads.-1270536448
 .
 ```
 thread끼리는 같은 메모리를 공유하기 때문에 a의 값이 공유되는 것을 확인할 수 있었다.
+
 ## Lecture 14
 
+### vim tip
+~/.vimrc : vim을 실행할 때 실행할 명령어를 저장하는 파일
+
+vim command
+- set tabstop=(num) : tab을 입력했을 때 이동할 칸의 갯수
+
+### POSIX의 기원
+
+- 컴퓨터 산업회사 DIGITAL
+    - DIGITAL의 역사 요약
+    
+    DIGITAL -> DEC로 개명 -> DIGITAL로 다시 개명 -> Compaq에 인수됨 -> HP에 Compaq이 인수됨 (DIGITAL의 legacy는 HP에 있다고 할 수 있다.)
+
+* C언어의 탄생
+    - DIGITAL는 미니 컴퓨터 PDP 시리즈를 개발했었다. 그 중 PDP-11은 매우 대중적으로 많이 사용되던 제품
+    - PDP-11이 많이 사용되던 시절 PDP-11을 제어하기 위한 언어로 C언어가 Bell Labs에서 탄생했다.
+
+- UNIX
+    - AT&T 산하의 Bell Labs에서 개발된 운영체제로 PDP-11에서도 사용하던 운영체제이다.
+    - C언어가 탄생한 다음 C로 작성된 UNIX의 소스 코드가 배포됨
+
+* UNIX의 상용화
+    - AT&T의 규모가 커져서 독점을 방지하기 위해 회사가 분할됨
+    - 돈을 벌기위해 UNIX의 상표를 등록하고 소스코드를 닫음
+
+- UNIX계열 OS들의 탄생
+    - UNIX가 상용화 되어 대체제가 필요하게 되었음
+    - BSD
+        - UC Berkeley에서 개발한 UNIX계열 OS
+        - Berkeley Software Distribution의 약자
+        - IOS, macOS등의 OS의 기반
+    - Linux
+        - Linus Torvalds가 개발한 kernel
+        - Linux라는 이름은 Linux is not Unix의 약자
+        - GNU project에 포함되게 된다.
+        - GNU
+            - Richard Stallman의 자유 소프트웨어 재단의 OS 프로젝트
+            - GNU is not UNIX의 약자
+
+* POSIX표준의 탄생
+    - UNIX의 API 규격
+    - UNIX계열의 여러 OS들이 모두 규격이 서로 달라졌음
+    - 이를 통일하기 위해 IEEE에서 만든 표준이 POSIX
+
+- UNIX계열 OS가 널리 쓰이게 된 이유
+    - FIPS
+        - 연방정부의 컴퓨터 납품 표준인데 POSIX를 사용
+        - 즉 UNIX계열 OS를 사용하지 않으면 FIPS를 따르지 못함
+
+* 현재 표준화는 ISO에서 한다. 그 중 ISO/IEC JTC 1/SC 22는 프로그래밍 언어의 표준을 개발하는 기구. 
+    - 대표적으로 개발된 표준 : C,  C++
+
+### About Buffer
+
+Q. 저번 마지막 실습에서 a.out 실행 시 출력이 안되고 있던 이유
+> 결론부터 말하자면, 줄바꿈 문자가 없어서 버퍼에서 flush 되지 않았음
+
+#### Buffer의 목적
+- Terminal == Character Device
+    - Character Device : 한 문자 씩 IO를 수행하는 IO Device
+        - 출력을 해야할 때 cpu가 한문자씩 터미널에 출력 명령을 내리는 것은 매우 비효율적 (CPU speed >> IO speed)
+        - 그러므로 속도가 빠른 메모리의 버퍼에 입출력할 데이터를 넣어놓고 특정 방식에 따라 한번에 출력하여 CPU가 IO를 기다리는 시간을 줄이는 것이 Buuffer를 사용하는 목적
+
+#### Buffer 작동방식
+1. FULL BUFFERING
+    - Buffer가 꽉 찼을 때 IO를 수행하는 Buffering 방식
+1. LINE BUFFERING
+    - 줄바꿈 문자가 입력되면 IO를 수행하는 Buffering 방식
+1. NULL BUFFERING 
+    - Buffer를 사용하지 않는 방식. Buffer에 저장되지 않고 바로바로 Character by Character로 출력 됨. Buffer size가 0인것과 같음
+
+#### Buffer 제어방법
+
+1. stdbuf
+    - 표준 스트림에 대해 수정된 버퍼링 작업으로 COMMAND를 실행하는 bash명령어
+    ```bash
+    $ stdbuf --output=0 a.out # stdout에 NULL BUFFERING을 적용하여 실행 
+    ```
+1. setvbuf 
+    - buffer를 설정하는 C언어 함수
+    ```c
+    #include <stdio.h>
+    int setvbuf(FILE *stream, char *buf, int mode, size_t size);
+    ```
+    - mode : Buffer 작동방식 입력
+        1. _IONBF : NULL BUFFERING
+        1. _IOLBF : LINE BUFFERING
+        1. _IOFBF : FULL BUFFERING
+    
+    사용 예시
+    ```c
+    int main()
+    {
+        char bufff[10];
+        setvbuf(stdout, bufff,  _IOFBF,  10);
+    ```
+    예시에선 setvbuf함수로 stdout의 버퍼를 10바이트 크기의 FULL BUFFERING 모드 버퍼로 변경한다.
+1. fflush
+    - flush a stream : 강제로 flush하는 명령어  
+
+정의
+```c
+#include <stdio.h>
+       int fflush(FILE *stream);
+```
+stream으로 입력된 버퍼를 flush 시킨다.  
+
+사용 예시
+```c
+void fn_s()
+{
+    static int a = 0;
+    printf("== %d %d ==",a++, bbb++);
+    fflush();
+}
+```
+기존엔 프로그램이 끝날 때까지 출력이 되지 않던 것이 fflush 함수를 만날 때마다 출력이 되도록 변함.
+
+### 입출력 서식
+입출력 할 때 입출력 서식을 잘 맞추지 않으면 예상치 못한 결과가 나올 수 있으니 잘 맞춰야 한다.
+
+### 동기화
+thread 끼리는 같은 메모리를 공유하는데 여러 thread가 하나의 정보를 수정하려 할 때 예상치 못한 결과가 발생할 수 있음
+
+이 때 thread 들의 명령 수행 시점을 조절하여 정보의 불일치를 방지하는 것을 동기화라 한다.
+
+- Asynchronous Execution
+    - 비동기적 실행 : 동기화 없이 실행하는 것을 의미
+
+#### Mutex
+동기화를 달성하기 위한 수단 중 하나로 한 스레드가 자원을 사용하는 동안 다른 스레드가 자원에 접근하지 못하도록 못하는 방법을 사용한다.(=mutual exclusion)
+- 'mut'ual 'ex'clusion -> mutex
+
+Mutex의 활용
+```c
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // pthread_mutex_t 초기화
+
+pthread_mutex_lock(&mutex); // mutex를 획득 && mutex를 획득하지 못하게 lock을 걸음
+count++;
+pthread_mutex_unlock(&mutex); // mutex의 lock을 풀음
+```
+위와 같은 코드를 사용하면 동시에 하나의 스레드만 count의 값을 변경하도록 할 수 있다.
